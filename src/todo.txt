@@ -1,0 +1,18 @@
+**CPU to GPU Conversion Tasks**
+Lighten make file
+Convert all files to GL files, do not convert main nor scene files and their reading function
+Add line in main to start gpu
+Get rid of all classes
+Get rid of all recursion
+Get rid of all pointers
+Create a preprocessor to scan for includes
+
+
+**Additional Features to Add In Order**
+Tone mapping
+Bring spectral rendering back
+Alter scene reader to handle obj files and such
+Add a power stat to lights
+Fix transforms
+Add Volumetric
+Add animation capabilities1
