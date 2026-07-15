@@ -17,6 +17,8 @@ Add a power stat to lights
 Fix transforms
 Add Volumetric
 Add animation capabilities1
+Reformat loadscene in package_manager
+Create a gui for the program
 
 **Files That Must Stay As Cpp Files**
 Viewport.cpp and .h

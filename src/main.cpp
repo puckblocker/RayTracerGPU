@@ -41,7 +41,7 @@ int main()
 {
     // VARIABLES
     GLFWwindow *window; //  create window
-    Packager packager;
+    Packager newPackager;
     const int resWidth = 640;
     const int resHeight = 640;
     // Create Pixel Buffer to Heap
@@ -134,11 +134,18 @@ int main()
     float sampleCount = 0.0f; // starting sample count
 
     // ========================================
-    // INFO READER
+    // INFO PACKAGER
     // ========================================
-    renderer.render();
+    newPackager.packager();
 
-    // OPEN WINDOW
+    // GENERATE AND BIND BUFFERS
+    GLuint bufferID;
+    glGenBuffers(1, &bufferID); // generate unique memory ID
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, bufferID);   // bind buffer to a type
+
+    // ========================================
+    // WINDOW OPENER
+    // ========================================
     while (!glfwWindowShouldClose(window)) // keeps window up until closed by user
     {
         glfwPollEvents();                    // keeps event queue from overflowing (events are constantly being made)
