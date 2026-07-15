@@ -5,10 +5,11 @@ Add line in main to start gpu
 Get rid of all classes
 Get rid of all recursion
 Get rid of all pointers
-Create a preprocessor to scan for includes
+Create a preprocessor to scan for includes or combine all files into one file
 
 
 **Additional Features to Add In Order**
+Add multiple light support
 Tone mapping
 Bring spectral rendering back
 Alter scene reader to handle obj files and such
@@ -16,3 +17,19 @@ Add a power stat to lights
 Fix transforms
 Add Volumetric
 Add animation capabilities1
+
+**Files That Must Stay As Cpp Files**
+Viewport.cpp and .h
+Intersection.h, also put it into the gpu
+Main.cpp
+renderer.cpp and .h
+
+** COMPLETE FILES CPU SIDE **
+renderer.h
+renderer.cpp (PASS TO MAIN)
+rayData.h
+viewport.h .cpp
+lighting.h
+intersection.h
+
+** COMPLETE FILES GPU SIDE **

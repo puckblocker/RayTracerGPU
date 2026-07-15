@@ -1,0 +1,8 @@
+#pragma once // Ensures header file only include once throughout program
+// CONVERT
+
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+    double time;
+};

@@ -1,16 +1,17 @@
-// Program: This program aims to create a whitted ray tracer with simply lighting
-// and shading using the CPU with OpenGL and the accompanying GLM library
-// Author: Seth Hird
+// ========================================
+// PROGRAM: GPU PATH TRACER
+// PURPOSE: CREATE A GPU PATH TRACER UTILIZING OPENGL
+// AUTHOR: SETH HIRD
+// ========================================
+
 #include "config.h"
-#include "rayData.h"
-#include "viewport.h"
-#include "intersection.h"
-#include "lighting.h"
-#include "renderer.h"
+#include "package_manager.h"
 
 using namespace std;
 
-// VERTEX SHADER (Sets vertices)
+// ========================================
+// VERTEX SHADER (Sets Vertices)
+// ========================================
 const char *vertexShaderSource = "#version 330 core\n"
                                  "layout (location = 0) in vec2 aPos;\n" // gets inputs for attribute position aPos(bridge to rest of code look to glVertexAttribPointer with 0)
                                  "layout (location = 1) in vec2 aTexCoord;\n"
@@ -21,7 +22,9 @@ const char *vertexShaderSource = "#version 330 core\n"
                                  "   TexCoord = aTexCoord;\n"                         // passes texture coord further down pipeline
                                  "}\0";
 
+// ========================================
 // FRAGMENT SHADER (Sets color)
+// ========================================
 const char *fragmentShaderSource = "#version 330 core\n"
                                    "out vec4 FragColor;\n"              // final color output
                                    "in vec2 TexCoord;\n"                // vertex shader input
@@ -31,9 +34,12 @@ const char *fragmentShaderSource = "#version 330 core\n"
                                    "   FragColor = texture(screenTexture, TexCoord);\n" // looks at color at the coords
                                    "}\n\0";
 
+// ========================================
+// MAIN CODE
+// ========================================
 int main()
 {
-    // Variables
+    // VARIABLES
     GLFWwindow *window; //  create window
     Renderer renderer;
     renderer.loadScene("scene.txt");
@@ -42,19 +48,21 @@ int main()
     // Create Pixel Buffer to Heap
     float *pixelBuffer = new float[resWidth * resHeight * 3]; // holds total pixel count * total color count (RGB) to give each pixel it's own RGB variables
 
-    // ERROR CHECKERS + SETUP
-    // GLFW error checker
+    // GLFW ERROR CHECKER
     if (!glfwInit())
     {
         cout << "GLFW failed to start.\n";
         return -1;
     }
 
-    // Set window stats
+    // ========================================
+    // DISPLAY SETUP CODE
+    // ========================================
+    // WINDOW STATS
     window = glfwCreateWindow(640, 640, "My Window", NULL, NULL); // sets window stats like resolution and full screen, etc
     glfwMakeContextCurrent(window);                               // Sets window to the context we'll be rendering to
 
-    // Glad error checker
+    // GLAD ERROR CHECKER
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) // tells glad to run through system with the location of all function definitions
     {
         glfwTerminate();
@@ -102,11 +110,11 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, VBO);                                                // binds object making the object the current object (changes to binded object change current object)
     glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW); // stores vertices in VBO
 
-    // Position
+    // POSITION
     int stride = 4 * sizeof(float);                                     // how many bytes OpenGl needs to skip to get to next vertex in buffer
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, stride, (void *)0); // tells openGL how to read VBO (void* 0 is because vertices begin at start of array)
     glEnableVertexAttribArray(0);                                       // enables ^
-    // Texture Coords
+    // TEXTURE COORDS
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void *)(2 * sizeof(float))); // different void to represent offset since vertices are 4 bytes apart
     glEnableVertexAttribArray(1);
 
@@ -124,8 +132,12 @@ int main()
     // Allocate the memory on the GPU (NULL because we haven't uploaded data yet)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, resWidth, resHeight, 0, GL_RGB, GL_FLOAT, NULL); // creates a 2D texture imaghe (allocates GPU memory) / stores vertices in the texture
 
-    // Sample Count For Progressive
-    float sampleCount = 0.0f;
+    float sampleCount = 0.0f; // starting sample count
+
+    // ========================================
+    // INFO READER
+    // ========================================
+    renderer.render();
 
     // OPEN WINDOW
     while (!glfwWindowShouldClose(window)) // keeps window up until closed by user
@@ -140,19 +152,19 @@ int main()
         // Create Image / Upload to GPU
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0.0f, 0.0f, resWidth, resHeight, GL_RGB, GL_FLOAT, pixelBuffer); // creates 2D texture sub image (copies data into existing memory)
 
-        // Display
+        // DISPLAY
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 6); // starting indices of triangles
 
         glfwSwapBuffers(window); // keeps display updated / swaps buffer
 
-        // Sample Count
+        // SAMPLE COUNT INCREMENTAL
         sampleCount += 4;
         std::cout << "Total Samples: " << sampleCount << endl;
     }
 
-    // Terminate
+    // TERMINATE
     delete[] pixelBuffer; // clean up heap
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);

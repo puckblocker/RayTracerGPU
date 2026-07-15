@@ -1,7 +1,3 @@
-// ========================================
-// Purpose: CAMERA & VIEWPORT BLUEPRINT
-// ========================================
-
 #pragma once // Ensures header file only include once throughout program
 
 #include <glm/glm.hpp>
@@ -9,13 +5,12 @@
 #include <glm/gtx/norm.hpp>
 
 #include "rayData.h"
+#include "helper.h"
 
 class Camera
 {
 public:
-    // ========================================
-    // CAMERA BLUEPRINT
-    // ========================================
+    // Camera
     glm::vec3 origin = glm::vec3(0.0f); // focal point, standard right hand coords
     glm::vec3 up = glm::vec3(0.0f);     // vertical orientation
     glm::vec3 gaze = glm::vec3(0.0f);   // direction camera is facing
@@ -24,9 +19,7 @@ public:
     float focusDist;                    // camera focus distance (user provided)
     float focalDist;                    // camera focal distance
 
-    // ========================================
-    // VIEWPORT BLUEPRINT
-    // ========================================
+    // Viewport
     struct Viewport
     {
         float height; // values so view is simplified to between -1 and +1
@@ -34,9 +27,7 @@ public:
         glm::vec3 origin;
     };
 
-    // ========================================
-    // IMAGE BLUEPRINT
-    // ========================================
+    // Image
     struct Image
     {
         int width = 640;
@@ -45,9 +36,7 @@ public:
         float pixelWidth;
     };
 
-    // ========================================
-    // CAMERA BASIS BLUEPRINT
-    // ========================================
+    // Camera's frame (right, up, forward)
     struct Basis
     {
         glm::vec3 xhat; // right
@@ -55,11 +44,13 @@ public:
         glm::vec3 zhat; // forward
     };
 
-    // STRUCT INSTANTIATES
+    // Instantiate Structs
     Viewport viewport;
     Image image;
     Basis basis;
 
     // FUNCTION SIGNATURES
+    Ray rayGeneration(float i, float j);
     void camViewUpdate();
+    glm::vec3 lensRandom();
 };

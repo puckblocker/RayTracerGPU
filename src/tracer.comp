@@ -1,3 +1,7 @@
+// ====================
+// ====================
+// FILE FUNCTION : ALL GPU CALCULATIONS
+
 #include "renderer.h"
 #include <iostream>
 #include <fstream>

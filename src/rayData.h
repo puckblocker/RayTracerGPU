@@ -1,3 +1,6 @@
+// ========================================
+// PURPOSE: RAY BLUEPRINT
+// ========================================
 #pragma once // Ensures header file only include once throughout program
 
 #include <glm/glm.hpp>

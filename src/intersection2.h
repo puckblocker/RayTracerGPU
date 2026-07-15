@@ -1,7 +1,3 @@
-// ========================================
-// PURPOSE: INTERSECTION BLUEPRINT
-// ========================================
-
 #pragma once
 
 #include <glm/glm.hpp>
@@ -9,21 +5,18 @@
 
 #include "rayData.h"
 
+// CONVERT AND KEEP
+
 // Info On Intersection
 struct HitInfo
 {
-    // ========================================
-    // HIT INFO BLUEPRINT
-    // ========================================
     glm::vec3 point;
     bool valid;
     float distance;
     unsigned int objID;
     glm::vec3 normal; // normal to surface at intersect point
 
-    // ========================================
-    // MATERIAL BLUEPRINT
-    // ========================================
+    // Materials
     struct Material
     {
         glm::vec3 albedo; // object's reflectance/color
@@ -38,14 +31,9 @@ struct HitInfo
     Material mat;
 };
 
-// ========================================
-// INTERSECTION BLUEPRINT
-// ========================================
 namespace Intersect
 {
-    // ========================================
-    // TRANSFORM BLUEPRINT
-    // ========================================
+    // Info On Transforms
     struct xForm
     {
         int crntID;
@@ -53,9 +41,6 @@ namespace Intersect
         glm::mat4 transform; // matrix transforms
     };
 
-    // ========================================
-    // LOCAL SPACE BLUEPRINT
-    // ========================================
     struct LocalSpaceData
     {
         Ray localRay;
@@ -63,9 +48,7 @@ namespace Intersect
         glm::mat3 nrmMtrx;
     };
 
-    // ========================================
-    // PARENT SHAPE BLUEPRINT
-    // ========================================
+    // Parent Class
     struct Shape
     {
         unsigned int objID;
@@ -79,29 +62,30 @@ namespace Intersect
         bool animated = false;
     };
 
-    // ========================================
-    // SPHERE BLUEPRINT
-    // ========================================
+    // Children
+    // SPHERE
     struct Sphere : public Shape
     {
         float radius;
         glm::vec3 center;
     };
 
-    // ========================================
-    // TRIANGLE BLUEPRINT
-    // ========================================
+    // TRIANGLE
     struct Triangle : public Shape
     {
         glm::vec3 p0, p1, p2;
     };
 
-    // ========================================
-    // PLANE BLUEPRINT
-    // ========================================
+    // PLANE
     struct Plane : public Shape
     {
         glm::vec3 position;
         glm::vec3 normal;
     };
+
+    // FUNCTION SIGNATURES
+    LocalSpaceData localSpacePrep(Ray ray, const Shape &shape, const std::vector<xForm> &xFormArray);
+    HitInfo intersectSphere(Ray ray, Sphere sphere, std::vector<xForm> xFormArray);
+    HitInfo intersectTriangle(Ray ray, Triangle triangle, std::vector<xForm> xFormArray);
+    HitInfo intersectPlane(Ray ray, Plane plane, std::vector<xForm> xFormArray);
 };
