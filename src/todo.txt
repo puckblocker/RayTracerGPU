@@ -25,8 +25,8 @@ Main.cpp
 renderer.cpp and .h
 
 ** COMPLETE FILES CPU SIDE **
-renderer.h
-renderer.cpp (PASS TO MAIN)
+package_manager.h
+package_manager.cpp (PASS TO MAIN)
 rayData.h
 viewport.h .cpp
 lighting.h

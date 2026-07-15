@@ -14,17 +14,26 @@ using namespace Intersect;
 // ========================================
 // PACKAGER
 // ========================================
-std::vector<Packager::package> Packager::packager()
+Packager::Package Packager::packager()
 {
-    package::camera.camViewUpdate();
-
+    // INSTANTIATE STRUCTS
+    Package newPackage;
     Ray ray;
+
+    // SCENE READER
+    loadScene("scene.txt", newPackage);
+
+    // CAMERA SETUP
+    newPackage.camera.camViewUpdate();
+
+    // PACKAGE & SEND DATA
+    return newPackage;
 }
 
 // ========================================
 // SCENE LOADER
 // ========================================
-void Packager::loadScene(const std::string &filename)
+void Packager::loadScene(const std::string &filename, Package &newPackage)
 {
     std::ifstream file(filename);
 
@@ -58,7 +67,7 @@ void Packager::loadScene(const std::string &filename)
             objID += 1;
             newSphere.objID = objID;
 
-            spheres.push_back(newSphere);
+            newPackage.spheres.push_back(newSphere);
 
             std::cout << "Sphere Position: " << newSphere.center.x << " " << newSphere.center.y << " " << newSphere.center.z << std::endl;
             std::cout << "Radius: " << newSphere.radius << std::endl;
@@ -81,7 +90,7 @@ void Packager::loadScene(const std::string &filename)
 
             objID += 1;
             newTriangle.objID = objID;
-            triangles.push_back(newTriangle);
+            newPackage.triangles.push_back(newTriangle);
         }
 
         // ========================================
@@ -99,7 +108,7 @@ void Packager::loadScene(const std::string &filename)
             objID += 1;
             newPlane.objID = objID;
 
-            planes.push_back(newPlane);
+            newPackage.planes.push_back(newPlane);
         }
 
         // ========================================
@@ -107,8 +116,8 @@ void Packager::loadScene(const std::string &filename)
         // ========================================
         else if (type == "pLight")
         {
-            file >> pointLight.origin.x >> pointLight.origin.y >> pointLight.origin.z;
-            file >> pointLight.color.r >> pointLight.color.g >> pointLight.color.b;
+            file >> newPackage.pointLight.origin.x >> newPackage.pointLight.origin.y >> newPackage.pointLight.origin.z;
+            file >> newPackage.pointLight.color.r >> newPackage.pointLight.color.g >> newPackage.pointLight.color.b;
         }
 
         // ========================================
@@ -116,11 +125,11 @@ void Packager::loadScene(const std::string &filename)
         // ========================================
         else if (type == "aLight")
         {
-            file >> areaLight.origin.x >> areaLight.origin.y >> areaLight.origin.z;
-            file >> areaLight.color.r >> areaLight.color.g >> areaLight.color.b;
-            file >> areaLight.normal.x >> areaLight.normal.y >> areaLight.normal.z;
-            file >> areaLight.u.x >> areaLight.u.y >> areaLight.u.z;
-            file >> areaLight.v.x >> areaLight.v.y >> areaLight.v.z;
+            file >> newPackage.areaLight.origin.x >> newPackage.areaLight.origin.y >> newPackage.areaLight.origin.z;
+            file >> newPackage.areaLight.color.r >> newPackage.areaLight.color.g >> newPackage.areaLight.color.b;
+            file >> newPackage.areaLight.normal.x >> newPackage.areaLight.normal.y >> newPackage.areaLight.normal.z;
+            file >> newPackage.areaLight.u.x >> newPackage.areaLight.u.y >> newPackage.areaLight.u.z;
+            file >> newPackage.areaLight.v.x >> newPackage.areaLight.v.y >> newPackage.areaLight.v.z;
         }
 
         // ========================================
@@ -128,8 +137,8 @@ void Packager::loadScene(const std::string &filename)
         // ========================================
         else if (type == "dLight")
         {
-            file >> directionalLight.direction.x >> directionalLight.direction.y >> directionalLight.direction.z;
-            file >> directionalLight.color.r >> directionalLight.color.g >> directionalLight.color.b;
+            file >> newPackage.directionalLight.direction.x >> newPackage.directionalLight.direction.y >> newPackage.directionalLight.direction.z;
+            file >> newPackage.directionalLight.color.r >> newPackage.directionalLight.color.g >> newPackage.directionalLight.color.b;
         }
 
         // ========================================
@@ -137,10 +146,10 @@ void Packager::loadScene(const std::string &filename)
         // ========================================
         else if (type == "Camera")
         {
-            file >> camera.origin.x >> camera.origin.y >> camera.origin.z;
-            file >> camera.up.x >> camera.up.y >> camera.up.z;
-            file >> camera.gaze.x >> camera.gaze.y >> camera.gaze.z;
-            file >> camera.length;
+            file >> newPackage.camera.origin.x >> newPackage.camera.origin.y >> newPackage.camera.origin.z;
+            file >> newPackage.camera.up.x >> newPackage.camera.up.y >> newPackage.camera.up.z;
+            file >> newPackage.camera.gaze.x >> newPackage.camera.gaze.y >> newPackage.camera.gaze.z;
+            file >> newPackage.camera.length;
         }
 
         // ========================================
@@ -148,7 +157,7 @@ void Packager::loadScene(const std::string &filename)
         // ========================================
         else if (type == "Viewport")
         {
-            file >> camera.viewport.height >> camera.viewport.width;
+            file >> newPackage.camera.viewport.height >> newPackage.camera.viewport.width;
         }
 
         // ========================================
@@ -156,8 +165,8 @@ void Packager::loadScene(const std::string &filename)
         // ========================================
         else if (type == "Lens")
         {
-            file >> camera.lensDiameter >> camera.focusDist;
-            std::cout << "Lens diameter: " << camera.lensDiameter << std::endl;
+            file >> newPackage.camera.lensDiameter >> newPackage.camera.focusDist;
+            std::cout << "Lens diameter: " << newPackage.camera.lensDiameter << std::endl;
         }
 
         // ========================================
@@ -186,7 +195,7 @@ void Packager::loadScene(const std::string &filename)
             trnsfrm.transform = glm::rotate(trnsfrm.transform, glm::radians(rot.w), glm::vec3(rot));
             trnsfrm.transform = glm::scale(trnsfrm.transform, glm::vec3(scale));
 
-            xForms.push_back(trnsfrm);
+            newPackage.xForms.push_back(trnsfrm);
 
             std::cout << "Transform for ID " << trnsfrm.crntID << ":\n";
             std::cout << glm::to_string(trnsfrm.transform) << "\n\n";

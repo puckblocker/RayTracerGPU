@@ -41,8 +41,7 @@ int main()
 {
     // VARIABLES
     GLFWwindow *window; //  create window
-    Renderer renderer;
-    renderer.loadScene("scene.txt");
+    Packager packager;
     const int resWidth = 640;
     const int resHeight = 640;
     // Create Pixel Buffer to Heap

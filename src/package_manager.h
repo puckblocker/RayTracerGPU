@@ -19,7 +19,7 @@ public:
     // ========================================
     // PACKAGE MANAGER BLUEPRINT
     // ========================================
-    struct package
+    struct Package
     {
         // VARIABLES
         Light light;
@@ -36,6 +36,6 @@ public:
     };
 
     // FUNCTION SIGNATURES
-    std::vector<package> packager();
-    void loadScene(const std::string &filename);
+    Package packager();
+    void loadScene(const std::string &filename, Package &newPackage);
 };
