@@ -134,14 +134,66 @@ int main()
     float sampleCount = 0.0f; // starting sample count
 
     // ========================================
-    // INFO PACKAGER
+    // INFO SHIPPER
     // ========================================
-    newPackager.packager();
+    Packager::Package packageInfo = newPackager.packager();
 
-    // GENERATE AND BIND BUFFERS
-    GLuint bufferID;
-    glGenBuffers(1, &bufferID); // generate unique memory ID
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, bufferID);   // bind buffer to a type
+    // ----------------------------------------
+    // CAMERA / VIEWPORT PACKAGER   CHANGE, THIS IS A STRUCT NOT VECTOR
+    // ----------------------------------------
+    GLuint cameraID;
+    glCreateBuffers(1, &cameraID);                                                                      // Create unique memory ID and initiliaze
+    glNamedBufferData(cameraID, sizeof(Camera::CompCam), &packageInfo.camera.compCam, GL_DYNAMIC_DRAW); // allocate memory & send to GPU
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, cameraID);                                                   // link memory location to port for GPU access
+
+    // ----------------------------------------
+    // SHAPE PACKAGER
+    // ----------------------------------------
+
+    // SPHERE PACKAGER
+    GLuint sphereID;
+    glCreateBuffers(1, &sphereID);
+    glNamedBufferData(sphereID, packageInfo.spheres.size() * sizeof(Intersect::Sphere), packageInfo.spheres.data(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, sphereID);
+
+    // TRIANGLE
+    GLuint triangleID;
+    glCreateBuffers(1, &triangleID);
+    glNamedBufferData(triangleID, packageInfo.triangles.size() * sizeof(Intersect::Triangle), packageInfo.triangles.data(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, triangleID);
+
+    // PLANE
+    GLuint planeID;
+    glCreateBuffers(1, &planeID);
+    glNamedBufferData(planeID, packageInfo.planes.size() * sizeof(Intersect::Plane), packageInfo.planes.data(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, planeID);
+
+    // TRANSFORMS
+    GLuint xFormID;
+    glCreateBuffers(1, &xFormID);
+    glNamedBufferData(xFormID, packageInfo.xForms.size() * sizeof(Intersect::xForm), packageInfo.xForms.data(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, xFormID);
+
+    // ----------------------------------------
+    // LIGHT PACKAGER
+    // ----------------------------------------
+    // POINT
+    GLuint pLightID;
+    glCreateBuffers(1, &pLightID);
+    glNamedBufferData(pLightID, sizeof(Light::pLight), &packageInfo.pointLight, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 5, pLightID);
+
+    // DIRECTIONAL
+    GLuint dLightID;
+    glCreateBuffers(1, &dLightID);
+    glNamedBufferData(dLightID, sizeof(Light::dLight), &packageInfo.directionalLight, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 6, dLightID);
+
+    // AREA
+    GLuint aLightID;
+    glCreateBuffers(1, &aLightID);
+    glNamedBufferData(aLightID, sizeof(Light::aLight), &packageInfo.areaLight, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 7, aLightID);
 
     // ========================================
     // WINDOW OPENER

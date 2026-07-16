@@ -20,15 +20,15 @@ Add animation capabilities1
 Reformat loadscene in package_manager
 Create a gui for the program
 
-**Files That Must Stay As Cpp Files**
+**Files That Must Stay As Cpp Files(FINISHED)**
 Viewport.cpp and .h
 Intersection.h, also put it into the gpu
 Main.cpp
 renderer.cpp and .h
 
-** COMPLETE FILES CPU SIDE **
+** COMPLETE FILES CPU SIDE (FINISHED)**
 package_manager.h
-package_manager.cpp (PASS TO MAIN)
+package_manager.cpp
 rayData.h
 viewport.h .cpp
 lighting.h

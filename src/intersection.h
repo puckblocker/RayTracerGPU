@@ -16,10 +16,12 @@ struct HitInfo
     // HIT INFO BLUEPRINT
     // ========================================
     glm::vec3 point;
-    bool valid;
     float distance;
-    unsigned int objID;
+
     glm::vec3 normal; // normal to surface at intersect point
+    unsigned int objID;
+
+    int valid;
 
     // ========================================
     // MATERIAL BLUEPRINT
@@ -28,11 +30,12 @@ struct HitInfo
     {
         glm::vec3 albedo; // object's reflectance/color
         float roughness;  // 0 = smooth // 1 = rough
-        float metallic;   // metallic / conductor
-        float ior;        // Index of Refraction (is object glass)
-        bool emissive;    // is object a light
-        float z;          // depth
-        float layerIOR;   // ior for layered
+
+        float metallic; // metallic / conductor
+        float ior;      // Index of Refraction (is object glass)
+        int emissive;   // is object a light
+        float z;        // depth
+        float layerIOR; // ior for layered
     };
 
     Material mat;
@@ -48,9 +51,11 @@ namespace Intersect
     // ========================================
     struct xForm
     {
+        glm::mat4 transform; // matrix transforms
         int crntID;
         int prntID;
-        glm::mat4 transform; // matrix transforms
+        float padding1 = 0.0f;
+        float padding2 = 0.0f;
     };
 
     // ========================================
@@ -64,44 +69,71 @@ namespace Intersect
     };
 
     // ========================================
-    // PARENT SHAPE BLUEPRINT
+    // SPHERE BLUEPRINT
     // ========================================
-    struct Shape
+    struct Sphere
     {
-        unsigned int objID;
         glm::vec3 albedo;
+        unsigned int objID;
         float roughness;
         float metallic;
         float ior;
         float emissive;
         float z;        // depth
         float layerIOR; // ior for layered
-        bool animated = false;
-    };
+        int animated = false;
+        float padding1 = 0.0f;
 
-    // ========================================
-    // SPHERE BLUEPRINT
-    // ========================================
-    struct Sphere : public Shape
-    {
-        float radius;
         glm::vec3 center;
+        float radius;
     };
 
     // ========================================
     // TRIANGLE BLUEPRINT
     // ========================================
-    struct Triangle : public Shape
+    struct Triangle
     {
-        glm::vec3 p0, p1, p2;
+        glm::vec3 albedo;
+        unsigned int objID;
+        float roughness;
+        float metallic;
+        float ior;
+        float emissive;
+        float z;        // depth
+        float layerIOR; // ior for layered
+        int animated = false;
+        float padding1 = 0.0f;
+
+        glm::vec3 p0;
+        float padding1 = 0.0f;
+
+        glm::vec3 p1;
+        float padding2 = 0.0f;
+
+        glm::vec3 p2;
+        float padding3 = 0.0f;
     };
 
     // ========================================
     // PLANE BLUEPRINT
     // ========================================
-    struct Plane : public Shape
+    struct Plane
     {
+        glm::vec3 albedo;
+        unsigned int objID;
+        float roughness;
+        float metallic;
+        float ior;
+        float emissive;
+        float z;        // depth
+        float layerIOR; // ior for layered
+        int animated = false;
+        float padding1 = 0.0f;
+
         glm::vec3 position;
+        float padding1 = 0.0f;
+
         glm::vec3 normal;
+        float padding2 = 0.0f;
     };
 };

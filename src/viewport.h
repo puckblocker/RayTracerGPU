@@ -55,10 +55,30 @@ public:
         glm::vec3 zhat; // forward
     };
 
+    // ========================================
+    // COMPRESSED CAMERA BLUEPRINT
+    // ========================================
+    struct CompCam
+    {
+        // CAMERA STATS (Needed for GPU Side)
+        glm::vec3 camOrigin;
+        float padding1 = 0.0f; // padding to make 16 byt chunk (GPU prefers)
+
+        glm::vec3 xhat;
+        float padding2 = 0.0f;
+
+        glm::vec3 yhat;
+        float focusDist;
+
+        glm::vec3 origin;
+        float lensDiameter;
+    };
+
     // STRUCT INSTANTIATES
     Viewport viewport;
     Image image;
     Basis basis;
+    CompCam compCam;
 
     // FUNCTION SIGNATURES
     void camViewUpdate();

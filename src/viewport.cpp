@@ -28,4 +28,12 @@ void Camera::camViewUpdate()
     // PIXEL CALCULATIONS
     image.pixelHeight = viewport.height / image.height;
     image.pixelWidth = viewport.width / image.width;
+
+    // COMPRESS CAMERA INFO
+    compCam.camOrigin = origin;
+    compCam.lensDiameter = lensDiameter;
+    compCam.focusDist = focusDist;
+    compCam.xhat = basis.xhat;
+    compCam.yhat = basis.yhat;
+    compCam.origin = viewport.origin;
 }

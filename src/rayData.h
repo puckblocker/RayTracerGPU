@@ -9,6 +9,7 @@ class Ray
 {
 public:
     glm::vec3 origin;
+    float padding1 = 0.0f;
     glm::vec3 direction;
     double time;
 };
