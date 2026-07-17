@@ -7,7 +7,6 @@
 #include <fstream>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
-#include "omp.h"
 
 using namespace Intersect;
 

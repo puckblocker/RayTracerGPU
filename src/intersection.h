@@ -105,13 +105,13 @@ namespace Intersect
         float padding1 = 0.0f;
 
         glm::vec3 p0;
-        float padding1 = 0.0f;
-
-        glm::vec3 p1;
         float padding2 = 0.0f;
 
-        glm::vec3 p2;
+        glm::vec3 p1;
         float padding3 = 0.0f;
+
+        glm::vec3 p2;
+        float padding4 = 0.0f;
     };
 
     // ========================================
@@ -128,12 +128,12 @@ namespace Intersect
         float z;        // depth
         float layerIOR; // ior for layered
         int animated = false;
-        float padding1 = 0.0f;
+        float padding5 = 0.0f;
 
         glm::vec3 position;
-        float padding1 = 0.0f;
+        float padding6 = 0.0f;
 
         glm::vec3 normal;
-        float padding2 = 0.0f;
+        float padding7 = 0.0f;
     };
 };

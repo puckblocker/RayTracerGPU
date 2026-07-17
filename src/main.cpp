@@ -6,6 +6,9 @@
 
 #include "config.h"
 #include "package_manager.h"
+#include <fstream>
+#include <sstream>
+#include <iostream>
 
 using namespace std;
 
@@ -44,8 +47,6 @@ int main()
     Packager newPackager;
     const int resWidth = 640;
     const int resHeight = 640;
-    // Create Pixel Buffer to Heap
-    float *pixelBuffer = new float[resWidth * resHeight * 3]; // holds total pixel count * total color count (RGB) to give each pixel it's own RGB variables
 
     // GLFW ERROR CHECKER
     if (!glfwInit())
@@ -120,18 +121,55 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, 0); // combines VAO & VBO to prevent errors <
     glBindVertexArray(0);             // <
 
+    // ----------------------------------------
+    // SCREEN / TEXTURE PACKAGER
+    // ----------------------------------------
     // SETUP TEXTURE
     GLuint texID;
     glGenTextures(1, &texID);
+    glBindTexture(GL_TEXTURE_2D, texID);
+    glActiveTexture(GL_TEXTURE0); // plugs texture into texture0 slot
     glBindTexture(GL_TEXTURE_2D, texID);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     // Allocate the memory on the GPU (NULL because we haven't uploaded data yet)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, resWidth, resHeight, 0, GL_RGB, GL_FLOAT, NULL); // creates a 2D texture imaghe (allocates GPU memory) / stores vertices in the texture
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, resWidth, resHeight, 0, GL_RGB, GL_FLOAT, NULL); // creates a 2D texture imaghe (allocates GPU memory) / stores vertices in the texture
 
-    float sampleCount = 0.0f; // starting sample count
+    glBindImageTexture(0, texID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+    // ========================================
+    // COMPUTE SHADER SETUP CODE
+    // ========================================
+    // FILE READER
+    std::ifstream compFile("renderer.comp");
+    if (!compFile.is_open())
+    {
+        std::cout << "Failed to Open Compute Shader File: " << "renderer.comp" << std::endl;
+        return 0;
+    }
+
+    // CONVERT FILE TO STRING STREAM
+    std::stringstream compShaderStream;
+    compShaderStream << compFile.rdbuf();
+    compFile.close();
+
+    // CONVERT STREAM TO STRING
+    string compCode = compShaderStream.str();
+    const char *compShaderSourceText = compCode.c_str();
+
+    // PASS FILE TEXT TO GPU
+    GLuint compShader = glCreateShader(GL_COMPUTE_SHADER);
+
+    glShaderSource(compShader, 1, &compShaderSourceText, NULL);
+    glCompileShader(compShader);
+
+    // CREATE COMPUTE SHADER PROGRAM
+    GLuint compProg = glCreateProgram();
+    glAttachShader(compProg, compShader); // attaches binary to the program
+    glLinkProgram(compProg);              // links the code (such as actually making the ports connect and mean something)
+    glDeleteShader(compShader);
 
     // ========================================
     // INFO SHIPPER
@@ -139,7 +177,7 @@ int main()
     Packager::Package packageInfo = newPackager.packager();
 
     // ----------------------------------------
-    // CAMERA / VIEWPORT PACKAGER   CHANGE, THIS IS A STRUCT NOT VECTOR
+    // CAMERA / VIEWPORT PACKAGER
     // ----------------------------------------
     GLuint cameraID;
     glCreateBuffers(1, &cameraID);                                                                      // Create unique memory ID and initiliaze
@@ -200,33 +238,33 @@ int main()
     // ========================================
     while (!glfwWindowShouldClose(window)) // keeps window up until closed by user
     {
-        glfwPollEvents();                    // keeps event queue from overflowing (events are constantly being made)
+        glfwPollEvents(); // keeps event queue from overflowing (events are constantly being made)
+
+        // WAKE UP GPU
+        glUseProgram(compProg); // binds compute shader file
+
+        // EXECUTE GPU WORK GROUPS
+        glDispatchCompute(resWidth / 16, resHeight / 16, 1); // work groups of 16 x 16 filling screen res
+
+        // MEMORY BARRIER
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT); // forces CPU to wait for GPU to finish VRAM texture
+
+        // DISPLAY
         glClearColor(.75f, .5f, .75f, 1.0f); // set color that will be used to clear the screen
         glClear(GL_COLOR_BUFFER_BIT);        // clears screen with constant to tell which buffer to clear (color buffer)
 
-        renderer.render(pixelBuffer, resWidth, resHeight, sampleCount);
-
-        // DISPLAY RAY TRACER
-        // Create Image / Upload to GPU
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0.0f, 0.0f, resWidth, resHeight, GL_RGB, GL_FLOAT, pixelBuffer); // creates 2D texture sub image (copies data into existing memory)
-
-        // DISPLAY
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 6); // starting indices of triangles
 
         glfwSwapBuffers(window); // keeps display updated / swaps buffer
-
-        // SAMPLE COUNT INCREMENTAL
-        sampleCount += 4;
-        std::cout << "Total Samples: " << sampleCount << endl;
     }
 
     // TERMINATE
-    delete[] pixelBuffer; // clean up heap
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
+    glDeleteProgram(compProg);
     glfwTerminate(); // terminate window
     return 0;        // terminate program
 }
