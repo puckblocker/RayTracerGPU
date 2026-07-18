@@ -4,6 +4,11 @@
 #version 460 core
 #define pi 3.14159265359
 
+// RNG STATE COUNTER
+uint rngState = 0;
+uint randSample;
+
+
 // THREAD BATCH SIZE
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
@@ -87,7 +92,7 @@ struct HitInfo
     vec3 normal; // normal to surface at intersect point
     uint objID;
 
-    int valid;
+    bool valid;
 };
 
 struct Material
@@ -118,7 +123,7 @@ struct Sphere
     float emissive;
     float z;        // depth
     float layerIOR; // ior for layered
-    int animated;
+    bool animated;
     float padding1;
 
     vec3 center;
@@ -140,7 +145,7 @@ struct Triangle
     float emissive;
     float z;        // depth
     float layerIOR; // ior for layered
-    int animated;
+    bool animated;
     float padding1;
 
     vec3 p0;
@@ -168,7 +173,7 @@ struct Plane
     float emissive;
     float z;        // depth
     float layerIOR; // ior for layered
-    int animated;
+    bool animated;
     float padding1;
 
     vec3 position;
@@ -194,7 +199,7 @@ struct xForm
 
 layout(std430, binding = 4) buffer xFormBuffer
 {
-    xForm xforms[];
+    xForm xFormArray[];
 };
 
 // ----------------------------------------
@@ -252,6 +257,15 @@ vec3 LayeredBxDF(HitInfo, Material, vec3, inout vec3, inout float);
 vec3 DirectBxDF(HitInfo, Material, vec3, vec3);
 vec3 BxDF(HitInfo, Material, vec3, inout vec3, inout float);
 
+vec3 pointLight(pLight, HitInfo, vec3, float);
+vec3 directionalLight(dLight, HitInfo, vec3);
+vec3 areaLight(aLight, HitInfo, vec3, float);
+
+LocalSpaceData localSpacePrep(Ray, uint);
+HitInfo intersectSphere(Ray, Sphere);
+HitInfo intersectTriangle(Ray, Triangle);
+HitInfo intersectPlane(Ray, Plane);
+
 // ========================================
 // RENDERER CODE
 // ========================================
@@ -298,13 +312,13 @@ void main() {
 Ray rayGeneration(float i, float j, Camera camera, Ray ray, Basis basis, Viewport viewport, Image image)
 {
     // Pixel Sample
-    uint randSample = (uint(i) * uint(image.pixelWidth)) + uint(j);
+    randSample = (uint(i) * uint(image.pixelWidth)) + uint(j);
 
-    vec3 smpleSqr = vec3(RandFloat() - 0.5f, RandFloat() - 0.5f, 0.0f); // random point in sample area
+    vec3 smpleSqr = vec3(RandFloat(randSample) - 0.5f, RandFloat(randSample) - 0.5f, 0.0f); // random point in sample area
     vec3 pixelOffset = smpleSqr;
 
     // Jitter The Pixel
-    vec2 jitter = vec2(RandFloat(), RandFloat()); // randomize the sample position
+    vec2 jitter = vec2(RandFloat(randSample), RandFloat(randSample)); // randomize the sample position
     float jitterX = i + jitter.x;
     float jitterY = j + jitter.y;
 
@@ -324,7 +338,7 @@ Ray rayGeneration(float i, float j, Camera camera, Ray ray, Basis basis, Viewpor
     ray.direction = normalize(focalPoint - ray.origin);
 
     // Get a Random Time (Motion Blur)
-    ray.time = RandFloat();
+    ray.time = RandFloat(randSample);
 
     return ray;
 }
@@ -337,7 +351,7 @@ vec3 lensRandom()
     while (true)
     {
         // Generate Random Point Within -1 and 1
-        vec3 point = vec3(RandFloat() * 2.0f - 1.0f, RandFloat() * 2.0f - 1.0f, 0.0f);
+        vec3 point = vec3(RandFloat(randSample) * 2.0f - 1.0f, RandFloat(randSample) * 2.0f - 1.0f, 0.0f);
 
         // Check For Point Inside Lens
         if (dot(point, point) < 1.0f)
@@ -346,7 +360,7 @@ vec3 lensRandom()
 }
 
 // ========================================
-// HELPER FUNCTIONS 
+// HELPER FUNCTIONS
 // ========================================
 
 // ----------------------------------------
@@ -354,6 +368,7 @@ vec3 lensRandom()
 // ----------------------------------------
 float RandFloat(uint i)
 {
+    i += rngState;
     // MULTIPLE BY LARGE 32 BIT NUMBER
     uint val = i * 234023487u;
 
@@ -361,9 +376,12 @@ float RandFloat(uint i)
     uint bitVal = val >> 4;
 
     // BLEND VALUES
-    float hashVal = val ^ bitVal; // xor together
+    uint hashVal = val ^ bitVal; // xor together
 
-    return hashVal / 4294967295; // cap it to 0-1
+    // INCREMENT RNG STATE
+    rngState++;
+
+    return float(hashVal) / 4294967295.0; // cap it to 0-1
 }
 
 // ----------------------------------------
@@ -560,7 +578,7 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
 
             // Variables
             Fr = FrsRflct(n, w0, F0);
-            float uc = RandFloat();
+            float uc = RandFloat(randSample);
             float pt = 1.0f - Fr.r;
 
             // DISCRETE SAMPLING
@@ -610,8 +628,8 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
     {
         // COS WEIGHTED UIT HEMISPHERE SAMPLING (IMPORTANCE SAMPLING)
         // Random Variables
-        float Xi0 = RandFloat();
-        float Xi1 = RandFloat();
+        float Xi0 = RandFloat(randSample);
+        float Xi1 = RandFloat(randSample);
 
         // Uniform Disc Sample
         float dXi0 = 2 * Xi0 - 1.0f;
@@ -725,9 +743,9 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
             F0 = vec3(pow((ior - 1.0f) / (ior + 1.0f), 2.0f));
 
             // Random Numbers
-            float xiPhi = RandFloat();
-            float xiTheta = RandFloat();
-            float xi0 = RandFloat();
+            float xiPhi = RandFloat(randSample);
+            float xiTheta = RandFloat(randSample);
+            float xi0 = RandFloat(randSample);
 
             // GGX SAMPLING
             float alpha = max(mat.roughness, 0.01f);
@@ -841,4 +859,324 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
 
     // Error Detection
     return vec3(0.0f);
+}
+
+// ========================================
+// LIGHTING FUNCTIONS
+// ========================================
+
+// Point Light (No Geometry To Hit)
+vec3 pointLight(pLight light, HitInfo hitInfo, vec3 wi, float dist)
+{
+    // PDF is 1
+    // VARIABLES
+    vec3 point = hitInfo.point;
+
+    // MOST IMPORTANT > radiance = radiant flux / area * angle // radiant flux = energy / time // irradiance = energy / time * area
+    // power leaving surface = power surface emits + (incoming power - absorbed power)
+    // Shading is from > Radiance(color) seen in specific outgoing direction w sampled at point p on a surface (L0(p, w0) = Le(p,w0) + Lr(p, w0)) (Lr = reflected light afetr absorbtion in our direction)
+    // BRDF (fr)  fr(p, wo, wi) = (d*L0(p,w0)) / (Li(p,wi)*(n*wi)d*wi)
+    // fr(p, wo, wi) >= 0, BRDF never negative // fr(p, wo, wi) = fr(p,wi,w0) Helmhotz, direction of calc doesn't matter // Energy conservation, BRDF doesn't create energy
+
+    // EMITTED RADIANCE
+    dist = length(light.origin - point);
+    float attentuation = 1.0f / (dist * dist); // reduce lighting effect
+    wi = (light.origin - point) / dist;        // wi (incoming direction)
+
+    // Irradiance
+    vec3 Le = light.color * attentuation; // irradiance
+    return Le;
+}
+
+// Directional Light (Infinite)
+vec3 directionalLight(dLight light, HitInfo hitInfo, vec3 wi)
+{
+    // PDF is 1.0
+    // Light Direction
+    wi = normalize(-light.direction);
+
+    // Irradiance
+    vec3 Le = light.color;
+    return Le;
+}
+
+// Area Light
+vec3 areaLight(aLight light, HitInfo hitInfo, vec3 wi, float dist)
+{
+    // Random Values
+    float X0 = RandFloat(randSample);
+    float Xi = RandFloat(randSample);
+
+    // SAMPLING
+    vec3 randPoint = light.origin + (X0 * light.u) + (Xi * light.v);
+
+    // Calculations
+    float A = length(cross(light.u, light.v)); // surface area
+    dist = length(randPoint - hitInfo.point);
+    wi = (randPoint - hitInfo.point) / dist;
+
+    // Irradiance
+    vec3 Le = light.color / (pi * A);
+
+    return Le;
+}
+
+// ========================================
+// INTERSECTION FUNCTIONS
+// ========================================
+
+// ----------------------------------------
+// LOCAL TRANSFORM PREP
+// ----------------------------------------
+LocalSpaceData localSpacePrep(Ray ray, uint objID)
+{
+    // VARIABLES
+    LocalSpaceData data;
+    uint crntIndx = objID;
+    int prntIndx = -1;
+
+    mat4 localTrn = mat4(1.0f);
+    mat4 prntTrn = mat4(1.0f);
+
+    // LOOP THROUGH INDICES
+    for (int i = 0; i < xFormArray.length(); i++)
+    {
+        if (xFormArray[i].crntID == crntIndx)
+        {
+            localTrn = xFormArray[i].transform;
+            prntIndx = xFormArray[i].prntID;
+            break;
+        }
+    }
+
+    // GLOBAL PARENT CHECK
+    bool prntFound = false;
+    while (prntIndx != -1) // loop until global parent
+    {
+        for (int i = 0; i < xFormArray.length(); i++)
+        {
+            if (xFormArray[i].crntID == prntIndx)
+            {
+                prntTrn = xFormArray[i].transform * prntTrn; // combine the parent transforms
+                prntIndx = xFormArray[i].prntID;             // go to next parent
+                prntFound = true;
+                break;
+            }
+        }
+
+        if (!prntFound)
+            break;
+    }
+
+    // MATRIX MULT
+    mat4 crntTrn = prntTrn * localTrn;
+
+    // SCALE
+    float scale = length(vec3(crntTrn[0]));
+    float invScale = 1.0f / scale; // gets local scale (shrink ray instead of enlarge shape)
+
+    // ROTATION
+    mat3 rot = mat3(crntTrn) * invScale; // grabs rotation values and purges scale
+    mat3 invRot = transpose(rot);
+
+    // TRANSLATION
+    vec3 trans = vec3(crntTrn[3]);
+    vec3 invTrans = -(invRot * trans);
+
+    // FRAME CHANGE (Global to Local)
+    mat4 basisChange = mat4(vec4(invRot[0] * invScale, 0.0f),   // basis change
+                                        vec4(invRot[1] * invScale, 0.0f),
+                                        vec4(invRot[2] * invScale, 0.0f),
+                                        vec4(invTrans, 1.0f));
+
+    data.localRay.origin = vec3(basisChange * vec4(ray.origin, 1.0f));
+    data.localRay.direction = vec3(normalize(basisChange * vec4(ray.direction, 0.0f)));
+    data.nrmMtrx = rot;
+    data.wrldToLocal = crntTrn;
+
+    return data;
+}
+
+// ----------------------------------------
+// SPHERE INTERSECTION
+// ----------------------------------------
+HitInfo intersectSphere(Ray ray, Sphere sphere)
+{
+    // VARIABLES
+    LocalSpaceData ls = localSpacePrep(ray, sphere.objID);
+    HitInfo hitInfo;
+    Material mat;
+    hitInfo.valid = false;
+
+    float crntDist = 0.0f;
+    int maxSteps = 100;
+
+    // FIXES FOR DIELECTRICS
+    float startSDF = length(ls.localRay.origin - sphere.center) - sphere.radius; // starting sdf to prevent negative distance inside sphere
+    float raySign;                                                                    // essentially a flip switch to help with starting sdf
+
+    if (startSDF < 0.0f)
+    {
+        raySign = -1.0f;
+    }
+    else
+    {
+        raySign = 1.0f;
+    }
+
+    // MOTION BLUR (Move Sphere Based on Time)
+    float velocity = 0.10f;
+
+    if (sphere.animated == true)
+    {
+        sphere.center += vec3(ray.time * velocity);
+    }
+
+    // RAY MARCHING
+    for (int i = 0; i < maxSteps; i++)
+    {
+        // CALCULATIONS
+        vec3 point = ls.localRay.origin + ls.localRay.direction * crntDist;
+        float sdf = length(point - sphere.center) - sphere.radius; // signed distance function (distance from current position to object)
+
+        float newSDF = sdf * raySign; // new sdf to prevent negative distance
+
+        // INTERSECT CHECKS
+        if (newSDF < 0.0001f)
+        {
+            hitInfo.valid = true;
+            hitInfo.distance = crntDist;
+            hitInfo.objID = sphere.objID;
+            mat = Material(sphere.albedo, sphere.roughness, sphere.metallic, sphere.ior, sphere.emissive > 0.0f, sphere.z, sphere.layerIOR);
+            hitInfo.point = vec3(ls.wrldToLocal * vec4(point, 1.0f));
+            vec3 localNorm = normalize(point - sphere.center);
+            hitInfo.normal = normalize(ls.nrmMtrx * localNorm);
+
+            return hitInfo;
+        }
+
+        // MARCH
+        crntDist += newSDF; // current step distance (how far step will travel)
+
+        // BREAK
+        if (crntDist > 100.0f)
+            break; // unlikely to hit, optimization
+    }
+
+    return hitInfo;
+}
+
+// ----------------------------------------
+// TRIANGLE INTERSECTION
+// ----------------------------------------
+HitInfo intersectTriangle(Ray ray, Triangle triangle)
+{
+    // VARIABLES
+    LocalSpaceData ls = localSpacePrep(ray, triangle.objID);
+    HitInfo hitInfo;
+    Material mat;
+    hitInfo.valid = false;
+
+    vec3 edge1 = triangle.p1 - triangle.p0;
+    vec3 edge2 = triangle.p2 - triangle.p0;
+    vec3 h = cross(ls.localRay.direction, edge2);
+    float a = dot(edge1, h);
+
+    // CHECK FOR PARALLEL OR INSIDE PLANE OF TRIANGLE (If a is near 0)
+    if (abs(a) < 0.0001)
+    {
+        hitInfo.valid = false;
+        return hitInfo;
+    }
+
+    float f = 1.0f / a;
+    vec3 s = ls.localRay.origin - triangle.p0;
+    float u = f * dot(s, h);
+
+    // INTERSECTION OUT OF TRIANGLE BOUNDS
+    if (u < 0.0f || u > 1.0f)
+    {
+        hitInfo.valid = false;
+        return hitInfo;
+    }
+
+    vec3 q = cross(s, edge1);
+    float v = f * dot(ls.localRay.direction, q);
+
+    if (v < 0.0f || u + v > 1.0f)
+    {
+        hitInfo.valid = false;
+        return hitInfo;
+    }
+
+    // CALCULATE DISTANCE
+    float t = f * dot(edge2, q);
+
+    // HIT CHECK
+    if (t > 0.0001) // epsilon prevent self-intersection
+    {
+        // Fill Hit Info Traits
+        hitInfo.valid = true;
+        hitInfo.objID = triangle.objID;
+        hitInfo.distance = t; // distance
+        mat = Material(triangle.albedo, triangle.roughness, triangle.metallic, triangle.ior, triangle.emissive > 0.0f, triangle.z, triangle.layerIOR);
+        vec3 localPoint = ls.localRay.origin + ls.localRay.direction * t; // calculate point
+        hitInfo.point = vec3(ls.wrldToLocal * vec4(localPoint, 1.0f));
+        vec3 localNorm = cross(edge1, edge2); // calculate normal
+        hitInfo.normal = normalize(ls.nrmMtrx * localNorm);
+        return hitInfo;
+    }
+
+    else
+    {
+        hitInfo.valid = false;
+    }
+
+    return hitInfo;
+}
+
+// ----------------------------------------
+// PLANE INTERSECTION
+// ----------------------------------------
+HitInfo intersectPlane(Ray ray, Plane plane)
+{
+    // VARIABLES
+    LocalSpaceData ls = localSpacePrep(ray, plane.objID);
+    HitInfo hitInfo;
+    Material mat;
+    hitInfo.valid = false;
+
+    float crntDist = 0.0f;
+    int maxSteps = 200;
+    float threshold = 0.001f;
+
+    // RAY MARCHING
+    for (int i = 0; i < maxSteps; i++)
+    {
+        // CALCULATIONS
+        vec3 point = ls.localRay.origin + ls.localRay.direction * crntDist;
+        float sdf = abs(dot((point - plane.position), plane.normal)); // signed distance function (distance from current position to object)
+
+        // INTERSECT CHECKS
+        if(sdf < threshold)
+        {
+            hitInfo.valid = true;
+            hitInfo.distance = crntDist;
+            hitInfo.objID = plane.objID;
+            mat = Material(plane.albedo, plane.roughness, plane.metallic, plane.ior, plane.emissive > 0.0f, plane.z, plane.layerIOR);
+            hitInfo.point = vec3(ls.wrldToLocal * vec4(point, 1.0f));
+            hitInfo.normal = normalize(ls.nrmMtrx * plane.normal);
+
+            return hitInfo;
+        }
+
+        // MARCH
+        crntDist += sdf; // current step distance (how far step will travel)
+
+        // BREAK OUT
+        if (crntDist > 100.0f)
+            break; // unlikely to hit, optimization
+    }
+
+    return hitInfo;
 }

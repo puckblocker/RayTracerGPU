@@ -24,3 +24,5 @@ renderer.h
 viewport.h
 viewport.cpp
 helper.cpp
+lighting2.cpp
+intersection.cpp
