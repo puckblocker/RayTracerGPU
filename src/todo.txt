@@ -34,3 +34,9 @@ intersection.h
 
 ** COMPLETE FILES GPU SIDE **
 RayData.h
+helper.h
+intersection.h
+lighting.h
+renderer.h
+viewport.h
+viewport.cpp

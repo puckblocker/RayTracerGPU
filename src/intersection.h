@@ -9,12 +9,11 @@
 
 #include "rayData.h"
 
-// Info On Intersection
+// ========================================
+// HIT INFO BLUEPRINT
+// ========================================
 struct HitInfo
 {
-    // ========================================
-    // HIT INFO BLUEPRINT
-    // ========================================
     glm::vec3 point;
     float distance;
 
