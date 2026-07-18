@@ -1,7 +1,4 @@
 **CPU to GPU Conversion Tasks**
-Lighten make file
-Add line in main to start gpu
-Get rid of all classes
 Get rid of all recursion
 Get rid of all pointers
 
@@ -18,20 +15,6 @@ Add animation capabilities1
 Reformat loadscene in package_manager
 Create a gui for the program
 
-**Files That Must Stay As Cpp Files(FINISHED)**
-Viewport.cpp and .h
-Intersection.h, also put it into the gpu
-Main.cpp
-renderer.cpp and .h
-
-** COMPLETE FILES CPU SIDE (FINISHED)**
-package_manager.h
-package_manager.cpp
-rayData.h
-viewport.h .cpp
-lighting.h
-intersection.h
-
 ** COMPLETE FILES GPU SIDE **
 RayData.h
 helper.h
@@ -40,3 +23,4 @@ lighting.h
 renderer.h
 viewport.h
 viewport.cpp
+helper.cpp

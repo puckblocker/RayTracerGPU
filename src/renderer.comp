@@ -242,15 +242,15 @@ struct aLight
 Ray rayGeneration(float, float, Camera, Ray, Basis, Viewport, Image);
 
 vec3 lensRandom();
-float RandFloat();
+float RandFloat(uint);
 
 vec3 FrsRflct(vec3, vec3, vec3);
 float DistrFunc(float, vec3, vec3);
 float GeomFunc(float, vec3, vec3, vec3);
 
-vec3 LayeredBxDF(HitInfo, vec3, vec3, float);
-vec3 DirectBxDF(HitInfo, vec3, vec3);
-vec3 BxDF(HitInfo, vec3, vec3, float);
+vec3 LayeredBxDF(HitInfo, Material, vec3, inout vec3, inout float);
+vec3 DirectBxDF(HitInfo, Material, vec3, vec3);
+vec3 BxDF(HitInfo, Material, vec3, inout vec3, inout float);
 
 // ========================================
 // RENDERER CODE
@@ -298,6 +298,8 @@ void main() {
 Ray rayGeneration(float i, float j, Camera camera, Ray ray, Basis basis, Viewport viewport, Image image)
 {
     // Pixel Sample
+    uint randSample = (uint(i) * uint(image.pixelWidth)) + uint(j);
+
     vec3 smpleSqr = vec3(RandFloat() - 0.5f, RandFloat() - 0.5f, 0.0f); // random point in sample area
     vec3 pixelOffset = smpleSqr;
 
@@ -332,13 +334,13 @@ Ray rayGeneration(float i, float j, Camera camera, Ray ray, Basis basis, Viewpor
 // ========================================
 vec3 lensRandom()
 {
-    while (1)
+    while (true)
     {
         // Generate Random Point Within -1 and 1
         vec3 point = vec3(RandFloat() * 2.0f - 1.0f, RandFloat() * 2.0f - 1.0f, 0.0f);
 
         // Check For Point Inside Lens
-        if (length2(point) < 1.0f)
+        if (dot(point, point) < 1.0f)
             return point;
     }
 }
@@ -348,23 +350,20 @@ vec3 lensRandom()
 // ========================================
 
 // ----------------------------------------
-// RANDOM NUMBER GENERATOR
+// RANDOM NUMBER GENERATOR (HASHING)
 // ----------------------------------------
-float RandFloat()
+float RandFloat(uint i)
 {
-    // return (rand() / (RAND_MAX + 1.0f));
+    // MULTIPLE BY LARGE 32 BIT NUMBER
+    uint val = i * 234023487u;
 
-    // Generate Seed With Hardware Entropy
-    thread_local std::random_device r;
+    // BIT SHIFT (SHIFT THE NUMBERS AROUND)
+    uint bitVal = val >> 4;
 
-    // Number Range
-    std::uniform_real_distribution<float> distr(0, 1);
+    // BLEND VALUES
+    float hashVal = val ^ bitVal; // xor together
 
-    // Generate Normal Distribution
-    thread_local std::mt19937 gen(r());
-
-    // Generate Random Number
-    return distr(gen);
+    return hashVal / 4294967295; // cap it to 0-1
 }
 
 // ----------------------------------------
@@ -404,19 +403,21 @@ float GeomFunc(float k, vec3 normal, vec3 w0, vec3 wi)
 // LAYERED BSDF
 // ----------------------------------------
 // Random Instead of Deterministic
-vec3 LayeredBxDF(HitInfo hitInfo, vec3 w0, vec3 &wi, float &pdf)
+vec3 LayeredBxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf)    // WI and PDF WERE REFERENCES
 {
     int maxDepth = 5;
 
     // Top Layer Hit
     HitInfo topLayer = hitInfo;
-    topLayer.mat.roughness = 0.0f;
-    topLayer.mat.metallic = 0.0f;
-    topLayer.mat.ior = hitInfo.mat.layerIOR;
-    topLayer.mat.albedo = vec3(1.0f);
+    Material topMat = mat;
+
+    topMat.roughness = 0.0f;
+    topMat.metallic = 0.0f;
+    topMat.ior = mat.layerIOR;
+    topMat.albedo = vec3(1.0f);
 
     // BxDF CALL
-    vec3 f = BxDF(topLayer, w0, wi, pdf); // initial check for if entered layer of not
+    vec3 f = BxDF(topLayer, topMat, w0, wi, pdf); // initial check for if entered layer of not
 
     // Outside Check
     float cosThetaOut = dot(wi, hitInfo.normal);
@@ -431,33 +432,34 @@ vec3 LayeredBxDF(HitInfo hitInfo, vec3 w0, vec3 &wi, float &pdf)
     // TRANSMITTED
     vec3 w; // current direction
     w = wi;      // starting direction
-    float z = hitInfo.mat.z;
+    float z = mat.z;
 
     // RANDOM WALK
     for (int depth = 0; depth < maxDepth; ++depth)
     {
         // Beer's Law Absorbance
-        float distance = hitInfo.mat.z / abs(w.z);
+        float distance = mat.z / abs(w.z);
         float cosThetaW = dot(w, hitInfo.normal);
-        f *= std::exp(-distance);
+        f *= exp(-distance);
 
         // Boundary Hit Check
         HitInfo crntHit = hitInfo;
+        Material crntMat = mat;
 
         // Bottom Boundary
         if (z == 0.0f)
         {
-            crntHit.mat = hitInfo.mat;
+            crntMat = mat;
         }
         // Top Boundary
         else
         {
-            crntHit.mat = topLayer.mat;
+            crntMat = topMat;
         }
 
         // Bounce
         float pdfBounce = 0.0f;
-        vec3 color = BxDF(crntHit, -w, wi, pdfBounce);
+        vec3 color = BxDF(crntHit, crntMat, -w, wi, pdfBounce);
         f *= color;
         pdf *= pdfBounce;
         w = wi;
@@ -465,7 +467,7 @@ vec3 LayeredBxDF(HitInfo hitInfo, vec3 w0, vec3 &wi, float &pdf)
         cosThetaW = dot(w, hitInfo.normal);
 
         // Escape Check
-        if (cosThetaW < 0.0f && z == hitInfo.mat.z)
+        if (cosThetaW < 0.0f && z == mat.z)
         {
             break;
         }
@@ -477,16 +479,13 @@ vec3 LayeredBxDF(HitInfo hitInfo, vec3 w0, vec3 &wi, float &pdf)
 // ----------------------------------------
 // DIRECT LIGHTING BRDF
 // ----------------------------------------
-vec3 DirectBxDF(HitInfo hitInfo, vec3 w0, vec3 wi)
+vec3 DirectBxDF(HitInfo hitInfo, Material mat, vec3 w0, vec3 wi)
 {
     // PERFECT SMOOTH CHECK (Dirac Delta)
-    if (hitInfo.mat.roughness == 0.0f)
+    if (mat.roughness == 0.0f)
     {
         return vec3(0.0f);
     }
-
-    // VARIABLES
-    float pi = 3.14159265359;
 
     float nDotW0 = dot(hitInfo.normal, w0);
     float nDotWi = dot(hitInfo.normal, wi);
@@ -494,7 +493,7 @@ vec3 DirectBxDF(HitInfo hitInfo, vec3 w0, vec3 wi)
     // Early Exit
     if (nDotW0 <= 0.0f || nDotWi <= 0.0f)
     {
-        return vec4(0.0f);
+        return vec3(0.0f);
     }
 
     vec3 wh = normalize(w0 + wi); // half-way vector
@@ -502,15 +501,15 @@ vec3 DirectBxDF(HitInfo hitInfo, vec3 w0, vec3 wi)
     // IDEAL SPECULAR
     // Fresnel Schlick Approx (Calculate Reflection Based On Incident Angle)
     vec3 F0 = vec3(0.04f);
-    if (hitInfo.mat.metallic)
+    if (mat.metallic > 0.0)
     {
-        F0 = mix(F0, hitInfo.mat.albedo, hitInfo.mat.metallic); // mix the fresnel reflection with the base color based on how metallic object is
+        F0 = mix(F0, mat.albedo, mat.metallic); // mix the fresnel reflection with the base color based on how metallic object is
     }
 
     // ROUGH SPECULAR (Direction Diffuse)
 
     // Trowbridge Reitz (Normal Distr Function)
-    float alpha = max(hitInfo.mat.roughness, 0.01f); // roughness parameter
+    float alpha = max(mat.roughness, 0.01f); // roughness parameter
     float alphaSqr = alpha * alpha;
     float k = (alphaSqr + 1.0f) / 8.0f;
     float D = DistrFunc(alphaSqr, hitInfo.normal, wh); // how aligned surface normal is with microfacet normals
@@ -522,8 +521,8 @@ vec3 DirectBxDF(HitInfo hitInfo, vec3 w0, vec3 wi)
 
     // Ideal Diffuse
     vec3 kD = vec3(1.0f) - Fr;
-    kD *= (1.0f - hitInfo.mat.metallic);
-    vec3 idealDiffuse = (kD * hitInfo.mat.albedo) / pi;
+    kD *= (1.0f - mat.metallic);
+    vec3 idealDiffuse = (kD * mat.albedo) / pi;
 
     // PBR BRDF RESULT (Direct Lighting)
     vec3 directLighting = idealDiffuse + roughSpec;
@@ -534,18 +533,18 @@ vec3 DirectBxDF(HitInfo hitInfo, vec3 w0, vec3 wi)
 // ----------------------------------------
 // BxDF
 // ----------------------------------------
-vec3 BxDF(HitInfo hitInfo, vec3 w0, vec3 &wi, float &pdf)
+vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf)
 {
     // Variables
-    float ior = hitInfo.mat.ior;
+    float ior = mat.ior;
     vec3 normal = hitInfo.normal;
-    vec3 albedo = hitInfo.mat.albedo;
+    vec3 albedo = mat.albedo;
     float nDotw0 = dot(hitInfo.normal, w0);
     vec3 Fr;
     vec3 F0 = vec3(0.04f);
 
     // SMOOTH SPECULAR
-    if (hitInfo.mat.roughness == 0.0f && (ior > 1.0f || hitInfo.mat.metallic))
+    if (mat.roughness == 0.0f && (ior > 1.0f || mat.metallic > 0.0))
     {
         // Smooth Dielectric
         if (ior > 1.0f)
@@ -590,7 +589,7 @@ vec3 BxDF(HitInfo hitInfo, vec3 w0, vec3 &wi, float &pdf)
             }
         }
         // Smooth Conductor
-        else if (hitInfo.mat.metallic)
+        else if (mat.metallic > 0.0)
         {
             // CORRECTED SCHLICK APPROXIMATION
             F0 = albedo;
@@ -662,7 +661,7 @@ vec3 BxDF(HitInfo hitInfo, vec3 w0, vec3 &wi, float &pdf)
 
         // Trowbridge Reitz (Normal Distr Function)
         vec3 wh = normalize(0.5f * (w0 + wi));      // half way vector
-        float alpha = max(hitInfo.mat.roughness, 0.01f); // roughness parameter
+        float alpha = max(mat.roughness, 0.01f); // roughness parameter
         float alphaSqr = alpha * alpha;
         float k = (alphaSqr + 1.0f) / 8.0f;
         float D = DistrFunc(alphaSqr, hitInfo.normal, wh); // how aligned surface normal is with microfacet normals
@@ -670,13 +669,13 @@ vec3 BxDF(HitInfo hitInfo, vec3 w0, vec3 &wi, float &pdf)
         float h;
 
         // ROUGH CONDUCTOR
-        if (hitInfo.mat.metallic)
+        if (mat.metallic > 0.0)
         {
             // F0 = (pow(ior - 1.0f, 2.0f) + (albedo * albedo)) / (pow(ior + 1.0f, 2.0f) + (albedo * albedo));
             F0 = albedo;
 
             // GGX SAMPLING
-            alpha = max(hitInfo.mat.roughness, 0.01f); // roughness parameter
+            alpha = max(mat.roughness, 0.01f); // roughness parameter
             alphaSqr = alpha * alpha;
 
             // Random Point In Uniform Disk
@@ -720,7 +719,7 @@ vec3 BxDF(HitInfo hitInfo, vec3 w0, vec3 &wi, float &pdf)
         }
 
         // ROUGH DIELECTRIC
-        else if (hitInfo.mat.ior > 1.0f)
+        else if (mat.ior > 1.0f)
         {
             // CORRECTED SCHLICK APPROXIMATION
             F0 = vec3(pow((ior - 1.0f) / (ior + 1.0f), 2.0f));
@@ -731,7 +730,7 @@ vec3 BxDF(HitInfo hitInfo, vec3 w0, vec3 &wi, float &pdf)
             float xi0 = RandFloat();
 
             // GGX SAMPLING
-            float alpha = max(hitInfo.mat.roughness, 0.01f);
+            float alpha = max(mat.roughness, 0.01f);
             float alphaSqr = alpha * alpha;
 
             // Random Point In Uniform Disk
@@ -753,7 +752,7 @@ vec3 BxDF(HitInfo hitInfo, vec3 w0, vec3 &wi, float &pdf)
 
             // Inside / Outside Check
             float etaI = 1.0f;
-            float etaT = hitInfo.mat.ior;
+            float etaT = mat.ior;
             bool outside = dot(w0, normal) > 0.0f;
             vec3 n = outside ? normal : -normal;
             float eta = outside ? (etaI / etaT) : (etaT / etaI);
@@ -832,7 +831,7 @@ vec3 BxDF(HitInfo hitInfo, vec3 w0, vec3 &wi, float &pdf)
             vec3 roughSpec = (D * G * Fr) / (4.0f * nDotw0 * nDotwi);
 
             // Diffuse Lobe (Lambertian)
-            vec3 kD = (1.0f - Fr) * (1.0f - hitInfo.mat.metallic); // diffuse ratio
+            vec3 kD = (1.0f - Fr) * (1.0f - mat.metallic); // diffuse ratio
             vec3 diffuse = (kD * albedo) / pi;
 
             // PBR BRDF RESULT (Direct Lighting)
