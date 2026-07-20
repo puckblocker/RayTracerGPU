@@ -1,8 +1,3 @@
-**CPU to GPU Conversion Tasks**
-Get rid of all recursion
-Get rid of all pointers
-
-
 **Additional Features to Add In Order**
 Add multiple light support
 Tone mapping
@@ -14,15 +9,3 @@ Add Volumetric
 Add animation capabilities1
 Reformat loadscene in package_manager
 Create a gui for the program
-
-** COMPLETE FILES GPU SIDE **
-RayData.h
-helper.h
-intersection.h
-lighting.h
-renderer.h
-viewport.h
-viewport.cpp
-helper.cpp
-lighting2.cpp
-intersection.cpp

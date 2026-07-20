@@ -93,10 +93,8 @@ struct HitInfo
     uint objID;
 
     bool valid;
-};
 
-struct Material
-{
+    // MATERIAL
     vec3 albedo; // object's reflectance/color
     float roughness;  // 0 = smooth // 1 = rough
     float metallic;   // metallic / conductor
@@ -120,7 +118,7 @@ struct Sphere
     float roughness;
     float metallic;
     float ior;
-    float emissive;
+    bool emissive;
     float z;        // depth
     float layerIOR; // ior for layered
     bool animated;
@@ -142,7 +140,7 @@ struct Triangle
     float roughness;
     float metallic;
     float ior;
-    float emissive;
+    bool emissive;
     float z;        // depth
     float layerIOR; // ior for layered
     bool animated;
@@ -170,7 +168,7 @@ struct Plane
     float roughness;
     float metallic;
     float ior;
-    float emissive;
+    bool emissive;
     float z;        // depth
     float layerIOR; // ior for layered
     bool animated;
@@ -244,6 +242,8 @@ struct aLight
 // ========================================
 // FORWARD DECLARATIONS
 // ========================================
+vec3 Tracer(Ray);
+
 Ray rayGeneration(float, float, Camera, Ray, Basis, Viewport, Image);
 
 vec3 lensRandom();
@@ -253,9 +253,9 @@ vec3 FrsRflct(vec3, vec3, vec3);
 float DistrFunc(float, vec3, vec3);
 float GeomFunc(float, vec3, vec3, vec3);
 
-vec3 LayeredBxDF(HitInfo, Material, vec3, inout vec3, inout float);
-vec3 DirectBxDF(HitInfo, Material, vec3, vec3);
-vec3 BxDF(HitInfo, Material, vec3, inout vec3, inout float);
+vec3 LayeredBxDF(HitInfo, vec3, inout vec3, inout float);
+vec3 DirectBxDF(HitInfo, vec3, vec3);
+vec3 BxDF(HitInfo, vec3, inout vec3, inout float);
 
 vec3 pointLight(pLight, HitInfo, vec3, float);
 vec3 directionalLight(dLight, HitInfo, vec3);
@@ -314,7 +314,7 @@ Ray rayGeneration(float i, float j, Camera camera, Ray ray, Basis basis, Viewpor
     // Pixel Sample
     randSample = (uint(i) * uint(image.pixelWidth)) + uint(j);
 
-    vec3 smpleSqr = vec3(RandFloat(randSample) - 0.5f, RandFloat(randSample) - 0.5f, 0.0f); // random point in sample area
+    vec3 smpleSqr = vec3(RandFloat(randSample) - 0.5f, RandFloat(randSample) - 0.5f, 0.0); // random point in sample area
     vec3 pixelOffset = smpleSqr;
 
     // Jitter The Pixel
@@ -329,7 +329,7 @@ Ray rayGeneration(float i, float j, Camera camera, Ray ray, Basis basis, Viewpor
 
     // DEPTH OF FIELD CALCUlATIONS (Lens)
     vec3 focalPoint = camera.origin + (ray.direction * camera.focusDist); // focal point from the focus point and the focus distance
-    vec3 lensSample = lensRandom() * (camera.lensDiameter / 2.0f); // grab random value within the lens radius
+    vec3 lensSample = lensRandom() * (camera.lensDiameter / 2.0); // grab random value within the lens radius
 
     // Ray Origin
     ray.origin = camera.origin + (lensSample.x * basis.xhat) + (lensSample.y * basis.yhat); // moves ray origin back to camera origin
@@ -351,10 +351,10 @@ vec3 lensRandom()
     while (true)
     {
         // Generate Random Point Within -1 and 1
-        vec3 point = vec3(RandFloat(randSample) * 2.0f - 1.0f, RandFloat(randSample) * 2.0f - 1.0f, 0.0f);
+        vec3 point = vec3(RandFloat(randSample) * 2.0 - 1.0, RandFloat(randSample) * 2.0 - 1.0, 0.0);
 
         // Check For Point Inside Lens
-        if (dot(point, point) < 1.0f)
+        if (dot(point, point) < 1.0)
             return point;
     }
 }
@@ -389,8 +389,8 @@ float RandFloat(uint i)
 // ----------------------------------------
 vec3 FrsRflct(vec3 normal, vec3 direction, vec3 F0)
 {
-    float cosTheta = clamp(dot(normal, direction), 0.0f, 1.0f);
-    vec3 Fr = F0 + (1.0f - F0) * pow((1.0f - cosTheta), 5.0f);
+    float cosTheta = clamp(dot(normal, direction), 0.0, 1.0);
+    vec3 Fr = F0 + (1.0 - F0) * pow((1.0 - cosTheta), 5.0);
     return Fr;
 }
 
@@ -413,7 +413,7 @@ float GeomFunc(float k, vec3 normal, vec3 w0, vec3 wi)
 {
     float w0HalfVec = dot(normal, w0) / (dot(normal, w0) * (1 - k) + k);
     float wiHalfVec = dot(normal, wi) / (dot(normal, wi) * (1 - k) + k);
-    float G = max(w0HalfVec, 0.0f) * max(wiHalfVec, 0.0f); // clamped to prevent negative light (light from behind object)
+    float G = max(w0HalfVec, 0.0) * max(wiHalfVec, 0.0); // clamped to prevent negative light (light from behind object)
     return G;
 }
 
@@ -421,28 +421,27 @@ float GeomFunc(float k, vec3 normal, vec3 w0, vec3 wi)
 // LAYERED BSDF
 // ----------------------------------------
 // Random Instead of Deterministic
-vec3 LayeredBxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf)    // WI and PDF WERE REFERENCES
+vec3 LayeredBxDF(HitInfo hitInfo, vec3 w0, inout vec3 wi, inout float pdf)    // WI and PDF WERE REFERENCES
 {
     int maxDepth = 5;
 
     // Top Layer Hit
     HitInfo topLayer = hitInfo;
-    Material topMat = mat;
 
-    topMat.roughness = 0.0f;
-    topMat.metallic = 0.0f;
-    topMat.ior = mat.layerIOR;
-    topMat.albedo = vec3(1.0f);
+    topLayer.roughness = 0.0;
+    topLayer.metallic = 0.0;
+    topLayer.ior = hitInfo.layerIOR;
+    topLayer.albedo = vec3(1.0);
 
     // BxDF CALL
-    vec3 f = BxDF(topLayer, topMat, w0, wi, pdf); // initial check for if entered layer of not
+    vec3 f = BxDF(topLayer, w0, wi, pdf); // initial check for if entered layer of not
 
     // Outside Check
     float cosThetaOut = dot(wi, hitInfo.normal);
     float cosThetaIn = dot(w0, hitInfo.normal);
 
     // REFLECTED
-    if (wi.z > 0.0f && w0.z > 0.0f)
+    if (wi.z > 0.0 && w0.z > 0.0)
     {
         return f; // return BxDF
     }
@@ -450,34 +449,33 @@ vec3 LayeredBxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout fl
     // TRANSMITTED
     vec3 w; // current direction
     w = wi;      // starting direction
-    float z = mat.z;
+    float z = hitInfo.z;
 
     // RANDOM WALK
     for (int depth = 0; depth < maxDepth; ++depth)
     {
         // Beer's Law Absorbance
-        float distance = mat.z / abs(w.z);
+        float distance = hitInfo.z / abs(w.z);
         float cosThetaW = dot(w, hitInfo.normal);
         f *= exp(-distance);
 
         // Boundary Hit Check
         HitInfo crntHit = hitInfo;
-        Material crntMat = mat;
 
         // Bottom Boundary
-        if (z == 0.0f)
+        if (z == 0.0)
         {
-            crntMat = mat;
+            crntHit = hitInfo;
         }
         // Top Boundary
         else
         {
-            crntMat = topMat;
+            crntHit = topLayer;
         }
 
         // Bounce
-        float pdfBounce = 0.0f;
-        vec3 color = BxDF(crntHit, crntMat, -w, wi, pdfBounce);
+        float pdfBounce = 0.0;
+        vec3 color = BxDF(crntHit, -w, wi, pdfBounce);
         f *= color;
         pdf *= pdfBounce;
         w = wi;
@@ -485,33 +483,33 @@ vec3 LayeredBxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout fl
         cosThetaW = dot(w, hitInfo.normal);
 
         // Escape Check
-        if (cosThetaW < 0.0f && z == mat.z)
+        if (cosThetaW < 0.0 && z == hitInfo.z)
         {
             break;
         }
     }
 
-    return vec3(0.0f);
+    return vec3(0.0);
 }
 
 // ----------------------------------------
 // DIRECT LIGHTING BRDF
 // ----------------------------------------
-vec3 DirectBxDF(HitInfo hitInfo, Material mat, vec3 w0, vec3 wi)
+vec3 DirectBxDF(HitInfo hitInfo, vec3 w0, vec3 wi)
 {
     // PERFECT SMOOTH CHECK (Dirac Delta)
-    if (mat.roughness == 0.0f)
+    if (hitInfo.roughness == 0.0)
     {
-        return vec3(0.0f);
+        return vec3(0.0);
     }
 
     float nDotW0 = dot(hitInfo.normal, w0);
     float nDotWi = dot(hitInfo.normal, wi);
 
     // Early Exit
-    if (nDotW0 <= 0.0f || nDotWi <= 0.0f)
+    if (nDotW0 <= 0.0 || nDotWi <= 0.0)
     {
-        return vec3(0.0f);
+        return vec3(0.0);
     }
 
     vec3 wh = normalize(w0 + wi); // half-way vector
@@ -519,28 +517,28 @@ vec3 DirectBxDF(HitInfo hitInfo, Material mat, vec3 w0, vec3 wi)
     // IDEAL SPECULAR
     // Fresnel Schlick Approx (Calculate Reflection Based On Incident Angle)
     vec3 F0 = vec3(0.04f);
-    if (mat.metallic > 0.0)
+    if (hitInfo.metallic > 0.0)
     {
-        F0 = mix(F0, mat.albedo, mat.metallic); // mix the fresnel reflection with the base color based on how metallic object is
+        F0 = mix(F0, hitInfo.albedo, hitInfo.metallic); // mix the fresnel reflection with the base color based on how metallic object is
     }
 
     // ROUGH SPECULAR (Direction Diffuse)
 
     // Trowbridge Reitz (Normal Distr Function)
-    float alpha = max(mat.roughness, 0.01f); // roughness parameter
+    float alpha = max(hitInfo.roughness, 0.01f); // roughness parameter
     float alphaSqr = alpha * alpha;
-    float k = (alphaSqr + 1.0f) / 8.0f;
+    float k = (alphaSqr + 1.0) / 8.0;
     float D = DistrFunc(alphaSqr, hitInfo.normal, wh); // how aligned surface normal is with microfacet normals
     float G = GeomFunc(k, hitInfo.normal, w0, wi);     // how much masking, shadowing, interreflection due to facet distribution
 
     // Rough Specular BRDF
     vec3 Fr = FrsRflct(wh, w0, F0);
-    vec3 roughSpec = (D * G * Fr) / (4.0f * nDotW0 * nDotWi);
+    vec3 roughSpec = (D * G * Fr) / (4.0 * nDotW0 * nDotWi);
 
     // Ideal Diffuse
-    vec3 kD = vec3(1.0f) - Fr;
-    kD *= (1.0f - mat.metallic);
-    vec3 idealDiffuse = (kD * mat.albedo) / pi;
+    vec3 kD = vec3(1.0) - Fr;
+    kD *= (1.0 - hitInfo.metallic);
+    vec3 idealDiffuse = (kD * hitInfo.albedo) / pi;
 
     // PBR BRDF RESULT (Direct Lighting)
     vec3 directLighting = idealDiffuse + roughSpec;
@@ -551,44 +549,44 @@ vec3 DirectBxDF(HitInfo hitInfo, Material mat, vec3 w0, vec3 wi)
 // ----------------------------------------
 // BxDF
 // ----------------------------------------
-vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf)
+vec3 BxDF(HitInfo hitInfo, vec3 w0, inout vec3 wi, inout float pdf)
 {
     // Variables
-    float ior = mat.ior;
+    float ior = hitInfo.ior;
     vec3 normal = hitInfo.normal;
-    vec3 albedo = mat.albedo;
+    vec3 albedo = hitInfo.albedo;
     float nDotw0 = dot(hitInfo.normal, w0);
     vec3 Fr;
     vec3 F0 = vec3(0.04f);
 
     // SMOOTH SPECULAR
-    if (mat.roughness == 0.0f && (ior > 1.0f || mat.metallic > 0.0))
+    if (hitInfo.roughness == 0.0 && (ior > 1.0 || hitInfo.metallic > 0.0))
     {
         // Smooth Dielectric
-        if (ior > 1.0f)
+        if (ior > 1.0)
         {
             // Inside / Outside Check
-            bool outside = dot(w0, normal) > 0.0f;
+            bool outside = dot(w0, normal) > 0.0;
             vec3 n = outside ? normal : -normal;
-            float eta = outside ? (1.0f / ior) : ior;
+            float eta = outside ? (1.0 / ior) : ior;
             float cosTheta;
 
             // CORRECTED SCHLICK APPROXIMATION
-            F0 = vec3(pow((ior - 1) / (ior + 1), 2.0f));
+            F0 = vec3(pow((ior - 1) / (ior + 1), 2.0));
 
             // Variables
             Fr = FrsRflct(n, w0, F0);
             float uc = RandFloat(randSample);
-            float pt = 1.0f - Fr.r;
+            float pt = 1.0 - Fr.r;
 
             // DISCRETE SAMPLING
             // Perfect Specular Reflection
             if (uc < (Fr.r / (Fr.r + pt)))
             {
                 wi = reflect(-w0, n);
-                pdf = 1.0f;
+                pdf = 1.0;
                 cosTheta = max(abs(dot(n, wi)), 0.001f);
-                return vec3(1.0f);
+                return vec3(1.0);
             }
             // Perfect Specular Transmission
             else
@@ -596,18 +594,18 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
                 wi = refract(-w0, n, eta);
 
                 // Catch Grazing Angle (Total Internal Reflection)
-                if (length(wi) == 0.0f)
+                if (length(wi) == 0.0)
                 {
                     wi = reflect(-w0, n);
                 }
 
-                pdf = 1.0f;
+                pdf = 1.0;
                 cosTheta = max(abs(dot(n, wi)), 0.001f);
-                return vec3(1.0f);
+                return vec3(1.0);
             }
         }
         // Smooth Conductor
-        else if (mat.metallic > 0.0)
+        else if (hitInfo.metallic > 0.0)
         {
             // CORRECTED SCHLICK APPROXIMATION
             F0 = albedo;
@@ -618,7 +616,7 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
             // return Fr / abs(nDotw0);
             Fr = FrsRflct(normal, w0, F0);
 
-            pdf = 1.0f;
+            pdf = 1.0;
             float cosTheta = max(abs(dot(normal, wi)), 0.001f);
             return Fr;
         }
@@ -632,26 +630,26 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
         float Xi1 = RandFloat(randSample);
 
         // Uniform Disc Sample
-        float dXi0 = 2 * Xi0 - 1.0f;
-        float dXi1 = 2 * Xi1 - 1.0f;
+        float dXi0 = 2 * Xi0 - 1.0;
+        float dXi1 = 2 * Xi1 - 1.0;
         float r;
         float theta;
 
         // Prevent Division By Zero
         if (dXi0 == 0 && dXi1 == 0)
         {
-            r = 0.0f;
-            theta = 0.0f;
+            r = 0.0;
+            theta = 0.0;
         }
 
         else if (abs(dXi0) > abs(dXi1))
         {
-            theta = (pi / (4.0f)) * (dXi1 / dXi0);
+            theta = (pi / (4.0)) * (dXi1 / dXi0);
             r = dXi0;
         }
         else
         {
-            theta = (pi / (2.0f)) - (pi / (4.0f)) * (dXi0 / dXi1);
+            theta = (pi / (2.0)) - (pi / (4.0)) * (dXi0 / dXi1);
             r = dXi1;
         }
 
@@ -679,27 +677,27 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
 
         // Trowbridge Reitz (Normal Distr Function)
         vec3 wh = normalize(0.5f * (w0 + wi));      // half way vector
-        float alpha = max(mat.roughness, 0.01f); // roughness parameter
+        float alpha = max(hitInfo.roughness, 0.01f); // roughness parameter
         float alphaSqr = alpha * alpha;
-        float k = (alphaSqr + 1.0f) / 8.0f;
+        float k = (alphaSqr + 1.0) / 8.0;
         float D = DistrFunc(alphaSqr, hitInfo.normal, wh); // how aligned surface normal is with microfacet normals
         float G = GeomFunc(k, hitInfo.normal, w0, wi);     // how much masking, shadowing, interreflection due to facet distribution
         float h;
 
         // ROUGH CONDUCTOR
-        if (mat.metallic > 0.0)
+        if (hitInfo.metallic > 0.0)
         {
-            // F0 = (pow(ior - 1.0f, 2.0f) + (albedo * albedo)) / (pow(ior + 1.0f, 2.0f) + (albedo * albedo));
+            // F0 = (pow(ior - 1.0, 2.0) + (albedo * albedo)) / (pow(ior + 1.0, 2.0) + (albedo * albedo));
             F0 = albedo;
 
             // GGX SAMPLING
-            alpha = max(mat.roughness, 0.01f); // roughness parameter
+            alpha = max(hitInfo.roughness, 0.01f); // roughness parameter
             alphaSqr = alpha * alpha;
 
             // Random Point In Uniform Disk
-            float phi = 2.0f * pi * Xi0;
-            float cosTheta = sqrt((1.0f - Xi1) / (1.0f + (alphaSqr - 1.0f) * Xi1));
-            float sinTheta = sqrt(max(0.0f, 1.0f - cosTheta * cosTheta));
+            float phi = 2.0 * pi * Xi0;
+            float cosTheta = sqrt((1.0 - Xi1) / (1.0 + (alphaSqr - 1.0) * Xi1));
+            float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
 
             wh.x = sinTheta * cos(phi); // random point on x
             wh.y = sinTheta * sin(phi); // random point on y
@@ -711,12 +709,12 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
             wi = reflect(-w0, wh); // final outgoing vector (bounce direction)
 
             // Normal Check
-            if (dot(wi, hitInfo.normal) <= 0.0f)
+            if (dot(wi, hitInfo.normal) <= 0.0)
             {
-                return vec3(0.0f);
+                return vec3(0.0);
             }
 
-            float k = (alphaSqr + 1.0f) / 8.0f;
+            float k = (alphaSqr + 1.0) / 8.0;
             float D = DistrFunc(alphaSqr, hitInfo.normal, wh); // how aligned surface normal is with microfacet normals
             float G = GeomFunc(k, hitInfo.normal, w0, wi);     // how much masking, shadowing, interreflection due to facet distribution
 
@@ -726,21 +724,21 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
             float w0Dotwh = max(dot(w0, wh), 0.001f);
 
             // PDF
-            pdf = (D * nDotwh) / (4.0f * w0Dotwh);
+            pdf = (D * nDotwh) / (4.0 * w0Dotwh);
             pdf = max(pdf, 0.001f);
 
             // BRDF Calculations
             vec3 Fr = FrsRflct(wh, w0, F0);
-            vec3 roughSpec = (D * G * Fr) / (4.0f * nDotw0 * nDotwi);
+            vec3 roughSpec = (D * G * Fr) / (4.0 * nDotw0 * nDotwi);
 
             return roughSpec;
         }
 
         // ROUGH DIELECTRIC
-        else if (mat.ior > 1.0f)
+        else if (hitInfo.ior > 1.0)
         {
             // CORRECTED SCHLICK APPROXIMATION
-            F0 = vec3(pow((ior - 1.0f) / (ior + 1.0f), 2.0f));
+            F0 = vec3(pow((ior - 1.0) / (ior + 1.0), 2.0));
 
             // Random Numbers
             float xiPhi = RandFloat(randSample);
@@ -748,13 +746,13 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
             float xi0 = RandFloat(randSample);
 
             // GGX SAMPLING
-            float alpha = max(mat.roughness, 0.01f);
+            float alpha = max(hitInfo.roughness, 0.01f);
             float alphaSqr = alpha * alpha;
 
             // Random Point In Uniform Disk
-            float phi = 2.0f * pi * xiPhi;
-            float cosTheta = sqrt((1.0f - xiTheta) / (1.0f + (alphaSqr - 1.0f) * xiTheta));
-            float sinTheta = sqrt(max(0.0f, 1.0f - cosTheta * cosTheta));
+            float phi = 2.0 * pi * xiPhi;
+            float cosTheta = sqrt((1.0 - xiTheta) / (1.0 + (alphaSqr - 1.0) * xiTheta));
+            float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
 
             wh.x = sinTheta * cos(phi);
             wh.y = sinTheta * sin(phi);
@@ -763,15 +761,15 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
             // Local To World Transform
             wh = normalize(orthoU * wh.x + orthoUp * wh.y + hitInfo.normal * wh.z);
 
-            if (dot(wh, w0) < 0.0f)
+            if (dot(wh, w0) < 0.0)
             {
                 wh = -wh;
             }
 
             // Inside / Outside Check
-            float etaI = 1.0f;
-            float etaT = mat.ior;
-            bool outside = dot(w0, normal) > 0.0f;
+            float etaI = 1.0;
+            float etaT = hitInfo.ior;
+            bool outside = dot(w0, normal) > 0.0;
             vec3 n = outside ? normal : -normal;
             float eta = outside ? (etaI / etaT) : (etaT / etaI);
 
@@ -784,10 +782,10 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
                 // Reflect
                 wi = reflect(-w0, wh);
 
-                if (dot(wi, hitInfo.normal) <= 0.0f)
-                    return vec3(0.0f);
+                if (dot(wi, hitInfo.normal) <= 0.0)
+                    return vec3(0.0);
 
-                float k = (alphaSqr + 1.0f) / 8.0f;
+                float k = (alphaSqr + 1.0) / 8.0;
                 float D_new = DistrFunc(alphaSqr, hitInfo.normal, wh);
                 float G_new = GeomFunc(k, hitInfo.normal, w0, wi);
 
@@ -797,11 +795,11 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
                 float w0Dotwh = max(dot(w0, wh), 0.001f);
 
                 // PDF
-                pdf = Fr * ((D_new * nDotwh) / (4.0f * w0Dotwh));
+                pdf = Fr * ((D_new * nDotwh) / (4.0 * w0Dotwh));
                 pdf = max(pdf, 0.001f);
 
                 // Return BRDF
-                return (D_new * G_new * vec3(Fr) * nDotwi) / (4.0f * nDotwi);
+                return (D_new * G_new * vec3(Fr) * nDotwi) / (4.0 * nDotwi);
             }
             // Transmit (Refract)
             else
@@ -809,12 +807,12 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
                 wi = refract(-w0, wh, eta);
 
                 // TIR Check
-                if (length(wi) == 0.0f)
+                if (length(wi) == 0.0)
                 {
-                    return vec3(0.0f);
+                    return vec3(0.0);
                 }
 
-                float k = (alphaSqr + 1.0f) / 8.0f;
+                float k = (alphaSqr + 1.0) / 8.0;
                 float D_new = DistrFunc(alphaSqr, hitInfo.normal, wh);
                 float G_new = GeomFunc(k, hitInfo.normal, w0, wi);
 
@@ -827,16 +825,16 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
                 float wiDotwh = abs(dot(wi, wh));
 
                 // PDF
-                float denom = pow(dot(wi, wh) + eta * dot(w0, wh), 2.0f);
+                float denom = pow(dot(wi, wh) + eta * dot(w0, wh), 2.0);
                 denom = max(denom, 0.0001f); // Safety clamp
 
-                pdf = (1.0f - Fr) * (D_new * nDotwh * wiDotwh) / denom;
+                pdf = (1.0 - Fr) * (D_new * nDotwh * wiDotwh) / denom;
                 pdf = max(pdf, 0.001f);
 
                 // BTDF
                 float btdf = (D_new * G_new * w0Dotwh * wiDotwh) / (nDotw0 * nDotwi * denom);
                 float nDotwiT = abs(dot(hitInfo.normal, wi));
-                return vec3(btdf) * (1.0f - Fr) * albedo;
+                return vec3(btdf) * (1.0 - Fr) * albedo;
             }
         }
 
@@ -846,10 +844,10 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
             float nDotwi = max(dot(hitInfo.normal, wi), 0.001f);
             float nDotw0 = max(dot(hitInfo.normal, w0), 0.001f);
             vec3 Fr = FrsRflct(wh, w0, F0);
-            vec3 roughSpec = (D * G * Fr) / (4.0f * nDotw0 * nDotwi);
+            vec3 roughSpec = (D * G * Fr) / (4.0 * nDotw0 * nDotwi);
 
             // Diffuse Lobe (Lambertian)
-            vec3 kD = (1.0f - Fr) * (1.0f - mat.metallic); // diffuse ratio
+            vec3 kD = (1.0 - Fr) * (1.0 - hitInfo.metallic); // diffuse ratio
             vec3 diffuse = (kD * albedo) / pi;
 
             // PBR BRDF RESULT (Direct Lighting)
@@ -858,7 +856,7 @@ vec3 BxDF(HitInfo hitInfo, Material mat, vec3 w0, inout vec3 wi, inout float pdf
     }
 
     // Error Detection
-    return vec3(0.0f);
+    return vec3(0.0);
 }
 
 // ========================================
@@ -880,7 +878,7 @@ vec3 pointLight(pLight light, HitInfo hitInfo, vec3 wi, float dist)
 
     // EMITTED RADIANCE
     dist = length(light.origin - point);
-    float attentuation = 1.0f / (dist * dist); // reduce lighting effect
+    float attentuation = 1.0 / (dist * dist); // reduce lighting effect
     wi = (light.origin - point) / dist;        // wi (incoming direction)
 
     // Irradiance
@@ -935,8 +933,8 @@ LocalSpaceData localSpacePrep(Ray ray, uint objID)
     uint crntIndx = objID;
     int prntIndx = -1;
 
-    mat4 localTrn = mat4(1.0f);
-    mat4 prntTrn = mat4(1.0f);
+    mat4 localTrn = mat4(1.0);
+    mat4 prntTrn = mat4(1.0);
 
     // LOOP THROUGH INDICES
     for (int i = 0; i < xFormArray.length(); i++)
@@ -973,7 +971,7 @@ LocalSpaceData localSpacePrep(Ray ray, uint objID)
 
     // SCALE
     float scale = length(vec3(crntTrn[0]));
-    float invScale = 1.0f / scale; // gets local scale (shrink ray instead of enlarge shape)
+    float invScale = 1.0 / scale; // gets local scale (shrink ray instead of enlarge shape)
 
     // ROTATION
     mat3 rot = mat3(crntTrn) * invScale; // grabs rotation values and purges scale
@@ -984,13 +982,13 @@ LocalSpaceData localSpacePrep(Ray ray, uint objID)
     vec3 invTrans = -(invRot * trans);
 
     // FRAME CHANGE (Global to Local)
-    mat4 basisChange = mat4(vec4(invRot[0] * invScale, 0.0f),   // basis change
-                                        vec4(invRot[1] * invScale, 0.0f),
-                                        vec4(invRot[2] * invScale, 0.0f),
-                                        vec4(invTrans, 1.0f));
+    mat4 basisChange = mat4(vec4(invRot[0] * invScale, 0.0),   // basis change
+                                        vec4(invRot[1] * invScale, 0.0),
+                                        vec4(invRot[2] * invScale, 0.0),
+                                        vec4(invTrans, 1.0));
 
-    data.localRay.origin = vec3(basisChange * vec4(ray.origin, 1.0f));
-    data.localRay.direction = vec3(normalize(basisChange * vec4(ray.direction, 0.0f)));
+    data.localRay.origin = vec3(basisChange * vec4(ray.origin, 1.0));
+    data.localRay.direction = vec3(normalize(basisChange * vec4(ray.direction, 0.0)));
     data.nrmMtrx = rot;
     data.wrldToLocal = crntTrn;
 
@@ -1005,27 +1003,26 @@ HitInfo intersectSphere(Ray ray, Sphere sphere)
     // VARIABLES
     LocalSpaceData ls = localSpacePrep(ray, sphere.objID);
     HitInfo hitInfo;
-    Material mat;
     hitInfo.valid = false;
 
-    float crntDist = 0.0f;
+    float crntDist = 0.0;
     int maxSteps = 100;
 
     // FIXES FOR DIELECTRICS
     float startSDF = length(ls.localRay.origin - sphere.center) - sphere.radius; // starting sdf to prevent negative distance inside sphere
     float raySign;                                                                    // essentially a flip switch to help with starting sdf
 
-    if (startSDF < 0.0f)
+    if (startSDF < 0.0)
     {
-        raySign = -1.0f;
+        raySign = -1.0;
     }
     else
     {
-        raySign = 1.0f;
+        raySign = 1.0;
     }
 
     // MOTION BLUR (Move Sphere Based on Time)
-    float velocity = 0.10f;
+    float velocity = 0.10;
 
     if (sphere.animated == true)
     {
@@ -1047,8 +1044,14 @@ HitInfo intersectSphere(Ray ray, Sphere sphere)
             hitInfo.valid = true;
             hitInfo.distance = crntDist;
             hitInfo.objID = sphere.objID;
-            mat = Material(sphere.albedo, sphere.roughness, sphere.metallic, sphere.ior, sphere.emissive > 0.0f, sphere.z, sphere.layerIOR);
-            hitInfo.point = vec3(ls.wrldToLocal * vec4(point, 1.0f));
+            hitInfo.albedo = sphere.albedo;
+            hitInfo.roughness = sphere.roughness;
+            hitInfo.metallic = sphere.metallic;
+            hitInfo.ior = sphere.ior;
+            hitInfo.emissive = sphere.emissive;
+            hitInfo.z = sphere.z;
+            hitInfo.layerIOR = sphere.layerIOR;
+            hitInfo.point = vec3(ls.wrldToLocal * vec4(point, 1.0));
             vec3 localNorm = normalize(point - sphere.center);
             hitInfo.normal = normalize(ls.nrmMtrx * localNorm);
 
@@ -1059,7 +1062,7 @@ HitInfo intersectSphere(Ray ray, Sphere sphere)
         crntDist += newSDF; // current step distance (how far step will travel)
 
         // BREAK
-        if (crntDist > 100.0f)
+        if (crntDist > 100.0)
             break; // unlikely to hit, optimization
     }
 
@@ -1074,7 +1077,6 @@ HitInfo intersectTriangle(Ray ray, Triangle triangle)
     // VARIABLES
     LocalSpaceData ls = localSpacePrep(ray, triangle.objID);
     HitInfo hitInfo;
-    Material mat;
     hitInfo.valid = false;
 
     vec3 edge1 = triangle.p1 - triangle.p0;
@@ -1089,12 +1091,12 @@ HitInfo intersectTriangle(Ray ray, Triangle triangle)
         return hitInfo;
     }
 
-    float f = 1.0f / a;
+    float f = 1.0 / a;
     vec3 s = ls.localRay.origin - triangle.p0;
     float u = f * dot(s, h);
 
     // INTERSECTION OUT OF TRIANGLE BOUNDS
-    if (u < 0.0f || u > 1.0f)
+    if (u < 0.0 || u > 1.0)
     {
         hitInfo.valid = false;
         return hitInfo;
@@ -1103,7 +1105,7 @@ HitInfo intersectTriangle(Ray ray, Triangle triangle)
     vec3 q = cross(s, edge1);
     float v = f * dot(ls.localRay.direction, q);
 
-    if (v < 0.0f || u + v > 1.0f)
+    if (v < 0.0 || u + v > 1.0)
     {
         hitInfo.valid = false;
         return hitInfo;
@@ -1119,9 +1121,15 @@ HitInfo intersectTriangle(Ray ray, Triangle triangle)
         hitInfo.valid = true;
         hitInfo.objID = triangle.objID;
         hitInfo.distance = t; // distance
-        mat = Material(triangle.albedo, triangle.roughness, triangle.metallic, triangle.ior, triangle.emissive > 0.0f, triangle.z, triangle.layerIOR);
+        hitInfo.albedo = triangle.albedo;
+        hitInfo.roughness = triangle.roughness;
+        hitInfo.metallic = triangle.metallic;
+        hitInfo.ior = triangle.ior;
+        hitInfo.emissive = triangle.emissive;
+        hitInfo.z = triangle.z;
+        hitInfo.layerIOR = triangle.layerIOR;
         vec3 localPoint = ls.localRay.origin + ls.localRay.direction * t; // calculate point
-        hitInfo.point = vec3(ls.wrldToLocal * vec4(localPoint, 1.0f));
+        hitInfo.point = vec3(ls.wrldToLocal * vec4(localPoint, 1.0));
         vec3 localNorm = cross(edge1, edge2); // calculate normal
         hitInfo.normal = normalize(ls.nrmMtrx * localNorm);
         return hitInfo;
@@ -1143,10 +1151,9 @@ HitInfo intersectPlane(Ray ray, Plane plane)
     // VARIABLES
     LocalSpaceData ls = localSpacePrep(ray, plane.objID);
     HitInfo hitInfo;
-    Material mat;
     hitInfo.valid = false;
 
-    float crntDist = 0.0f;
+    float crntDist = 0.0;
     int maxSteps = 200;
     float threshold = 0.001f;
 
@@ -1163,8 +1170,14 @@ HitInfo intersectPlane(Ray ray, Plane plane)
             hitInfo.valid = true;
             hitInfo.distance = crntDist;
             hitInfo.objID = plane.objID;
-            mat = Material(plane.albedo, plane.roughness, plane.metallic, plane.ior, plane.emissive > 0.0f, plane.z, plane.layerIOR);
-            hitInfo.point = vec3(ls.wrldToLocal * vec4(point, 1.0f));
+            hitInfo.albedo = plane.albedo;
+            hitInfo.roughness = plane.roughness;
+            hitInfo.metallic = plane.metallic;
+            hitInfo.ior = plane.ior;
+            hitInfo.emissive = plane.emissive;
+            hitInfo.z = plane.z;
+            hitInfo.layerIOR = plane.layerIOR;
+            hitInfo.point = vec3(ls.wrldToLocal * vec4(point, 1.0));
             hitInfo.normal = normalize(ls.nrmMtrx * plane.normal);
 
             return hitInfo;
@@ -1174,9 +1187,232 @@ HitInfo intersectPlane(Ray ray, Plane plane)
         crntDist += sdf; // current step distance (how far step will travel)
 
         // BREAK OUT
-        if (crntDist > 100.0f)
+        if (crntDist > 100.0)
             break; // unlikely to hit, optimization
     }
 
     return hitInfo;
+}
+
+// ========================================
+// RENDERER FUNCTIONS
+// ========================================
+// void render(float pixelBuffer, int resWidth, int resHeight)
+// {
+//     // ANTI-ALIASING (Multiple Rays)
+//     // VARIABLES
+//     Ray ray;
+
+//     vec3 color(0.0);
+//     int smpleAmnt = 4; // samples per pixel
+//     float average = (float)smpleAmnt / (smpleAmnt + sampleCount);
+
+//     // Generate Jittered Rays (Jitter Happens Inside Ray)
+//     for (int index = 0; index < smpleAmnt; index++)
+//     {
+//         // Generate Ray
+//         ray = camera.rayGeneration(i, j);
+
+//         // Call Tracer
+//         vec3 sampleColor = tracer(ray, 0);
+
+//         // NaN Check
+//         if (any(isnan(sampleColor)))
+//         {
+//         }
+//         else
+//         {
+//             color += sampleColor;
+//         }
+//     }
+
+//     // Average Radiance Calculation (Monte Carlo)
+//     color = color / float(smpleAmnt);
+
+//     int index = (j * resWidth + i) * 3; // multiply by 3 to account for RGB components and resWidth to prevent overwriting pixels
+
+//     // PROGRESSIVE RENDERER (Average Total Samples)
+//     if (sampleCount > 0)
+//     {
+//         // color = ((pixelBufferTemp[index] * sampleCount) + color) / (sampleCount + 1.0);
+//         pixelBuffer[index] = mix(pixelBuffer[index], color.r, average);         // weighted red
+//         pixelBuffer[index + 1] = mix(pixelBuffer[index + 1], color.g, average); // weighted green
+//         pixelBuffer[index + 2] = mix(pixelBuffer[index + 2], color.b, average); // weighted blue
+//     }
+//     else
+//     {
+//         // Grab RGB Components
+//         pixelBuffer[index] = color.x;     // grab red value
+//         pixelBuffer[index + 1] = color.y; // grab green value
+//         pixelBuffer[index + 2] = color.z; // grab blue value
+//     }
+        
+// }
+
+// ========================================
+// TRACER FUNCTION
+// ========================================
+vec3 Tracer(Ray ray)
+{
+    vec3 finalColor = vec3(0.0);
+    vec3 tempColor = vec3(1.0); // act as if light was hit
+    vec3 specCoeff = vec3(0.0);
+
+    Ray bounceRay;
+
+    bounceRay = ray;
+
+    // MAX DEPTH CHECK
+    for (int depthIndex = 0; depthIndex < 5; depthIndex++)
+    {
+        // First Intersect
+        HitInfo hitInfo;
+        hitInfo.valid = false;
+        hitInfo.distance = 1000000.0;  
+
+        // Check For Sphere
+        HitInfo tempHit;
+        int i = 0;
+        for (i = 0; i < spheres.length(); i++)
+        {
+            tempHit = intersectSphere(bounceRay, spheres[i]);
+            if (tempHit.valid && tempHit.distance < hitInfo.distance)
+            {
+                hitInfo = tempHit;
+            }
+        }
+
+        // Check For Plane
+        for (i = 0; i < planes.length(); i++)
+        {
+            tempHit = intersectPlane(bounceRay, planes[i]);
+            if (tempHit.valid && tempHit.distance < hitInfo.distance)
+            {
+                hitInfo = tempHit;
+            }
+        }
+
+        // Check For Triangle
+        for (i = 0; i < triangles.length(); i++)
+        {
+            tempHit = intersectTriangle(bounceRay, triangles[i]);
+            if (tempHit.valid && tempHit.distance < hitInfo.distance)
+            {
+                hitInfo = tempHit;
+            }
+        }
+
+        // Non Light Hit
+        if (hitInfo.valid && hitInfo.emissive == false)
+        {
+            // VARIABLES
+            vec3 wiDirect;
+            float pdf = 1.0;
+            float lightDist = 1.0;
+
+            // LIGHT SAMPLING & SHADOWS
+            vec3 Le;
+            // Le = light.pointLight(pointLight, hitInfo, wiDirect, lightDist);
+            // Le = light.directionalLight(directionalLight, hitInfo, wiDirect);
+
+            // INSTANTIATE LIGHT STRUCTS
+            pLight crntPointLight;
+            dLight crntDirLight;
+            aLight crntAreaLight;
+
+            if (length(crntPointLight.color) > 0.0)
+            {
+                Le = pointLight(crntPointLight, hitInfo, wiDirect, lightDist);
+            }
+
+            else if (length(crntAreaLight.color) > 0.0)
+            {
+                Le = areaLight(crntAreaLight, hitInfo, wiDirect, lightDist);
+            }
+
+            else if (length(crntDirLight.color) > 0.0)
+            {
+                Le = directionalLight(crntDirLight, hitInfo, wiDirect);
+            }
+
+            // Generate Shadows
+            bool inShadow = false;
+            Ray shadowRay;
+            shadowRay.origin = hitInfo.point + (hitInfo.normal * 0.01f); // offset to avoid self shadowing
+            shadowRay.direction = wiDirect;
+
+            // Shadow Block Check Sphere
+            HitInfo shadowHit;
+            for (i = 0; i < spheres.length(); i++)
+            {
+                shadowHit = intersectSphere(shadowRay, spheres[i]);
+                if (shadowHit.valid && shadowHit.distance < lightDist && hitInfo.objID != shadowHit.objID) // Check for hit and behind object
+                    inShadow = true;
+            }
+
+            // Shadow Block Check Plane
+            for (i = 0; i < planes.length(); i++)
+            {
+                shadowHit = intersectPlane(shadowRay, planes[i]);
+                if (shadowHit.valid && shadowHit.distance < lightDist && hitInfo.objID != shadowHit.objID)
+                    inShadow = true;
+            }
+
+            // COLOR / REFLECTANCE (BRDF)
+            vec3 R = hitInfo.albedo;
+            vec3 w0 = -bounceRay.direction;
+            vec3 directLight = vec3(0.0);
+
+            // Not In Shadow
+            if (!inShadow)
+            {
+                // DIRECT LIGHTING
+                vec3 rflctDirect = DirectBxDF(hitInfo, w0, wiDirect);
+
+                float nDotWi = dot(hitInfo.normal, wiDirect); // lambert's cos law
+                directLight = rflctDirect * nDotWi * Le;
+            }
+
+            // INDIRECT LIGHT
+            vec3 wiIndirect;
+            vec3 rflctIndirect;
+
+            if (hitInfo.z == 0.0)
+            {
+                rflctIndirect = BxDF(hitInfo, w0, wiIndirect, pdf);
+            }
+            else
+            {
+                rflctIndirect = LayeredBxDF(hitInfo, w0, wiIndirect, pdf);
+            }
+
+            bounceRay.direction = wiIndirect;
+            vec3 normOffset = dot(wiIndirect, hitInfo.normal) < 0.0 ? -hitInfo.normal : hitInfo.normal; // prevent self intersection
+            bounceRay.origin = hitInfo.point + (normOffset * 0.002f);
+
+            // Indirect Light Calculation
+            finalColor += tempColor * directLight; 
+
+            float nDotwi = abs(dot(hitInfo.normal, wiIndirect)); // lambert's cos law
+            tempColor *= (rflctIndirect * nDotwi) / pdf;
+
+            // COLOR CALCULATION
+
+            // Max Radiance Clamp (Firefly fix (GREEN))
+            // float maxRad = 10.0;
+            // tempColor.x = min(tempColor.x, maxRad);
+            // tempColor.y = min(tempColor.y, maxRad);
+            // tempColor.z = min(tempColor.z, maxRad);
+        }
+        // Exited Scene
+        else
+        {
+            // Set Sky Color
+            finalColor += tempColor * vec3(0.69f, 0.88f, 1.0);
+
+            break;
+        }
+    }
+
+    return finalColor;
 }
