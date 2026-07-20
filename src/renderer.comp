@@ -5,8 +5,7 @@
 #define pi 3.14159265359
 
 // RNG STATE COUNTER
-uint rngState = 0;
-uint randSample;
+uint rngState;
 
 
 // THREAD BATCH SIZE
@@ -250,7 +249,8 @@ vec3 tracer(Ray);
 Ray rayGeneration(float, float, Camera, Ray, Basis, Viewport, Image);
 
 vec3 lensRandom();
-float RandFloat(uint);
+uint Hash(uint);
+float RandFloat();
 
 vec3 FrsRflct(vec3, vec3, vec3);
 float DistrFunc(float, vec3, vec3);
@@ -315,6 +315,10 @@ void main() {
     int smpleAmnt = 4; // samples per pixel
     float average = float(smpleAmnt) / (smpleAmnt + sampleCount);
 
+    // RANDOM NUMBER SEED
+    rngState = (uint(pixelCoords.x) * uint(dims.x)) + uint(pixelCoords.y) + uint(sampleCount) * 9871u;  // 9871u to increase seed difference
+    rngState = Hash(rngState + 0x9e3779b9u); // number from weyl
+
     // Generate Jittered Rays (Jitter Happens Inside Ray)
     for (int index = 0; index < smpleAmnt; index++)
     {
@@ -356,14 +360,11 @@ void main() {
 // ========================================
 Ray rayGeneration(float i, float j, Camera camera, Ray ray, Basis basis, Viewport viewport, Image image)
 {
-    // Pixel Sample
-    randSample = (uint(i) * uint(image.width)) + uint(j) + uint(sampleCount);
-
-    vec3 smpleSqr = vec3(RandFloat(randSample) - 0.5f, RandFloat(randSample) - 0.5f, 0.0); // random point in sample area
+    vec3 smpleSqr = vec3(RandFloat() - 0.5f, RandFloat() - 0.5f, 0.0); // random point in sample area
     vec3 pixelOffset = smpleSqr;
 
     // Jitter The Pixel
-    vec2 jitter = vec2(RandFloat(randSample), RandFloat(randSample)); // randomize the sample position
+    vec2 jitter = vec2(RandFloat(), RandFloat()); // randomize the sample position
     float jitterX = i + jitter.x;
     float jitterY = j + jitter.y;
 
@@ -383,7 +384,7 @@ Ray rayGeneration(float i, float j, Camera camera, Ray ray, Basis basis, Viewpor
     ray.direction = normalize(focalPoint - ray.origin);
 
     // Get a Random Time (Motion Blur)
-    ray.time = RandFloat(randSample);
+    ray.time = RandFloat();
 
     return ray;
 }
@@ -396,7 +397,7 @@ vec3 lensRandom()
     while (true)
     {
         // Generate Random Point Within -1 and 1
-        vec3 point = vec3(RandFloat(randSample) * 2.0 - 1.0, RandFloat(randSample) * 2.0 - 1.0, 0.0);
+        vec3 point = vec3(RandFloat() * 2.0 - 1.0, RandFloat() * 2.0 - 1.0, 0.0);
 
         // Check For Point Inside Lens
         if (dot(point, point) < 1.0)
@@ -411,22 +412,27 @@ vec3 lensRandom()
 // ----------------------------------------
 // RANDOM NUMBER GENERATOR (HASHING)
 // ----------------------------------------
-float RandFloat(uint i)
+uint Hash(uint x)
 {
-    i += rngState;
-    // MULTIPLE BY LARGE 32 BIT NUMBER
-    uint val = i * 234023487u;
+    // ROUNDS OF HASHING
+    x ^= x >> 17; // xor the bit-shifted number together
+    x*= 0xed5ad4bbu; // multiple by large 32 bit number
+    x ^= x >> 11;
+    x *= 0xac4c1b51u;
+    x ^= x >> 15;
+    x*= 0x31848babu;
+    x ^= x >> 14;
 
-    // BIT SHIFT (SHIFT THE NUMBERS AROUND)
-    uint bitVal = val >> 4;
+    return x;
+}
 
-    // BLEND VALUES
-    uint hashVal = val ^ bitVal; // xor together
-
-    // INCREMENT RNG STATE
-    rngState++;
-
-    return float(hashVal) / 4294967295.0; // cap it to 0-1
+// ----------------------------------------
+// RANDOM NUMBER GENERATOR (CLAMPING)
+// ----------------------------------------
+float RandFloat()
+{
+    rngState = Hash(rngState);
+    return float(rngState) / 4294967295.0;   // cap it to 0-1
 }
 
 // ----------------------------------------
@@ -621,7 +627,7 @@ vec3 BxDF(HitInfo hitInfo, vec3 w0, inout vec3 wi, inout float pdf)
 
             // Variables
             Fr = FrsRflct(n, w0, F0);
-            float uc = RandFloat(randSample);
+            float uc = RandFloat();
             float pt = 1.0 - Fr.r;
 
             // DISCRETE SAMPLING
@@ -671,8 +677,8 @@ vec3 BxDF(HitInfo hitInfo, vec3 w0, inout vec3 wi, inout float pdf)
     {
         // COS WEIGHTED UIT HEMISPHERE SAMPLING (IMPORTANCE SAMPLING)
         // Random Variables
-        float Xi0 = RandFloat(randSample);
-        float Xi1 = RandFloat(randSample);
+        float Xi0 = RandFloat();
+        float Xi1 = RandFloat();
 
         // Uniform Disc Sample
         float dXi0 = 2 * Xi0 - 1.0;
@@ -786,9 +792,9 @@ vec3 BxDF(HitInfo hitInfo, vec3 w0, inout vec3 wi, inout float pdf)
             F0 = vec3(pow((ior - 1.0) / (ior + 1.0), 2.0));
 
             // Random Numbers
-            float xiPhi = RandFloat(randSample);
-            float xiTheta = RandFloat(randSample);
-            float xi0 = RandFloat(randSample);
+            float xiPhi = RandFloat();
+            float xiTheta = RandFloat();
+            float xi0 = RandFloat();
 
             // GGX SAMPLING
             float alpha = max(hitInfo.roughness, 0.01f);
@@ -947,8 +953,8 @@ vec3 directionalLight(dLight light, HitInfo hitInfo, vec3 wi)
 vec3 areaLight(aLight light, HitInfo hitInfo, vec3 wi, float dist)
 {
     // Random Values
-    float X0 = RandFloat(randSample);
-    float Xi = RandFloat(randSample);
+    float X0 = RandFloat();
+    float Xi = RandFloat();
 
     // SAMPLING
     vec3 randPoint = light.origin + (X0 * light.u) + (Xi * light.v);
