@@ -16,6 +16,9 @@ layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 // PORT BINDING & BLUEPRINTS
 // ========================================
 
+// SAMPEL COUNT STORAGE
+uniform float sampleCount;
+
 // PIXEL STORAGE
 layout(rgba32f, binding = 0) uniform image2D screenOutput;
 
@@ -242,7 +245,7 @@ struct aLight
 // ========================================
 // FORWARD DECLARATIONS
 // ========================================
-vec3 Tracer(Ray);
+vec3 tracer(Ray);
 
 Ray rayGeneration(float, float, Camera, Ray, Basis, Viewport, Image);
 
@@ -297,13 +300,55 @@ void main() {
     viewport.origin = CameraData.origin;
     image.width = 640;
     image.height = 640;
+    viewport.width = 2.0;
+    viewport.height = 2.0;
+    image.pixelHeight = viewport.height / image.height;
+    image.pixelWidth = viewport.width / image.width;
 
     // PATH TRACING CALCULATIONS
-    //vec3 finalColor = calculateRay();
-    vec3 finalColor = vec3(1, 0, 0);
+    vec3 color = vec3(0.0); 
+
+    // ANTI-ALIASING (Multiple Rays)
+    // Varaibles
+    Ray ray;
+
+    int smpleAmnt = 4; // samples per pixel
+    float average = float(smpleAmnt) / (smpleAmnt + sampleCount);
+
+    // Generate Jittered Rays (Jitter Happens Inside Ray)
+    for (int index = 0; index < smpleAmnt; index++)
+    {
+        // Generate Ray
+        ray = rayGeneration(pixelCoords.x, pixelCoords.y, cam, ray, basis, viewport, image);
+
+        // Call Tracer
+        vec3 sampleColor = tracer(ray);
+
+        // NaN Check
+        if (any(isnan(sampleColor)))
+        {
+        }
+        else
+        {
+            color += sampleColor;
+        }
+    }
+
+    // Average Radiance Calculation (Monte Carlo)
+    color = color / float(smpleAmnt);
+
+    int index = (pixelCoords.y * 640 + pixelCoords.x) * 3; // multiply by 3 to account for RGB components and resWidth to prevent overwriting pixels
+
+    // PROGRESSIVE RENDERER (Average Total Samples)
+    if (sampleCount > 0)
+    {
+        vec3 tempColor = imageLoad(screenOutput, pixelCoords).rgb;
+
+        color = mix(tempColor, color, average);
+    }
     
     // STORE IMAGE
-    imageStore(screenOutput, pixelCoords, vec4(finalColor, 1.0));
+    imageStore(screenOutput, pixelCoords, vec4(color, 1.0));
 }
 
 // ========================================
@@ -312,7 +357,7 @@ void main() {
 Ray rayGeneration(float i, float j, Camera camera, Ray ray, Basis basis, Viewport viewport, Image image)
 {
     // Pixel Sample
-    randSample = (uint(i) * uint(image.pixelWidth)) + uint(j);
+    randSample = (uint(i) * uint(image.width)) + uint(j) + uint(sampleCount);
 
     vec3 smpleSqr = vec3(RandFloat(randSample) - 0.5f, RandFloat(randSample) - 0.5f, 0.0); // random point in sample area
     vec3 pixelOffset = smpleSqr;
@@ -323,7 +368,7 @@ Ray rayGeneration(float i, float j, Camera camera, Ray ray, Basis basis, Viewpor
     float jitterY = j + jitter.y;
 
     // Find Ray Direction (Pinhole)
-    vec3 pixelPos = camera.origin + (jitterX * image.pixelWidth * basis.xhat) +
+    vec3 pixelPos = viewport.origin + (jitterX * image.pixelWidth * basis.xhat) +
                          (jitterY * image.pixelHeight * basis.yhat);
     ray.direction = normalize(pixelPos - camera.origin); // Calculated by geting normalized unit of the vector between ray origin and camera origin
 
@@ -1195,64 +1240,9 @@ HitInfo intersectPlane(Ray ray, Plane plane)
 }
 
 // ========================================
-// RENDERER FUNCTIONS
-// ========================================
-// void render(float pixelBuffer, int resWidth, int resHeight)
-// {
-//     // ANTI-ALIASING (Multiple Rays)
-//     // VARIABLES
-//     Ray ray;
-
-//     vec3 color(0.0);
-//     int smpleAmnt = 4; // samples per pixel
-//     float average = (float)smpleAmnt / (smpleAmnt + sampleCount);
-
-//     // Generate Jittered Rays (Jitter Happens Inside Ray)
-//     for (int index = 0; index < smpleAmnt; index++)
-//     {
-//         // Generate Ray
-//         ray = camera.rayGeneration(i, j);
-
-//         // Call Tracer
-//         vec3 sampleColor = tracer(ray, 0);
-
-//         // NaN Check
-//         if (any(isnan(sampleColor)))
-//         {
-//         }
-//         else
-//         {
-//             color += sampleColor;
-//         }
-//     }
-
-//     // Average Radiance Calculation (Monte Carlo)
-//     color = color / float(smpleAmnt);
-
-//     int index = (j * resWidth + i) * 3; // multiply by 3 to account for RGB components and resWidth to prevent overwriting pixels
-
-//     // PROGRESSIVE RENDERER (Average Total Samples)
-//     if (sampleCount > 0)
-//     {
-//         // color = ((pixelBufferTemp[index] * sampleCount) + color) / (sampleCount + 1.0);
-//         pixelBuffer[index] = mix(pixelBuffer[index], color.r, average);         // weighted red
-//         pixelBuffer[index + 1] = mix(pixelBuffer[index + 1], color.g, average); // weighted green
-//         pixelBuffer[index + 2] = mix(pixelBuffer[index + 2], color.b, average); // weighted blue
-//     }
-//     else
-//     {
-//         // Grab RGB Components
-//         pixelBuffer[index] = color.x;     // grab red value
-//         pixelBuffer[index + 1] = color.y; // grab green value
-//         pixelBuffer[index + 2] = color.z; // grab blue value
-//     }
-        
-// }
-
-// ========================================
 // TRACER FUNCTION
 // ========================================
-vec3 Tracer(Ray ray)
+vec3 tracer(Ray ray)
 {
     vec3 finalColor = vec3(0.0);
     vec3 tempColor = vec3(1.0); // act as if light was hit
@@ -1312,8 +1302,6 @@ vec3 Tracer(Ray ray)
 
             // LIGHT SAMPLING & SHADOWS
             vec3 Le;
-            // Le = light.pointLight(pointLight, hitInfo, wiDirect, lightDist);
-            // Le = light.directionalLight(directionalLight, hitInfo, wiDirect);
 
             // INSTANTIATE LIGHT STRUCTS
             pLight crntPointLight;
@@ -1395,14 +1383,6 @@ vec3 Tracer(Ray ray)
 
             float nDotwi = abs(dot(hitInfo.normal, wiIndirect)); // lambert's cos law
             tempColor *= (rflctIndirect * nDotwi) / pdf;
-
-            // COLOR CALCULATION
-
-            // Max Radiance Clamp (Firefly fix (GREEN))
-            // float maxRad = 10.0;
-            // tempColor.x = min(tempColor.x, maxRad);
-            // tempColor.y = min(tempColor.y, maxRad);
-            // tempColor.z = min(tempColor.z, maxRad);
         }
         // Exited Scene
         else
@@ -1413,6 +1393,12 @@ vec3 Tracer(Ray ray)
             break;
         }
     }
+
+    // Max Radiance Clamp (Firefly fix (GREEN))
+    float maxRad = 10.0;
+    finalColor.x = min(finalColor.x, maxRad);
+    finalColor.y = min(finalColor.y, maxRad);
+    finalColor.z = min(finalColor.z, maxRad);
 
     return finalColor;
 }

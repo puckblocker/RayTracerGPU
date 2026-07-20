@@ -10,6 +10,10 @@
 #include <sstream>
 #include <iostream>
 
+// IMAGE SAVING
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
 using namespace std;
 
 // ========================================
@@ -36,6 +40,9 @@ const char *fragmentShaderSource = "#version 330 core\n"
                                    "{\n"
                                    "   FragColor = texture(screenTexture, TexCoord);\n" // looks at color at the coords
                                    "}\n\0";
+
+// FORWARD DECLARATION
+void imageSaver(std::vector<float> &, int, int);
 
 // ========================================
 // MAIN CODE
@@ -233,15 +240,74 @@ int main()
     glNamedBufferData(aLightID, sizeof(Light::aLight), &packageInfo.areaLight, GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 7, aLightID);
 
+    // SAMPLE COUNT FOR PROGRESIVE
+    float sampleCount = 0.0f;
+    GLuint sampleCountLoc = glGetUniformLocation(compProg, "sampleCount");
+
+    // MENU VARIABLES
+    int choice;
+    bool inMenu = false;
+    std::vector<float> pixelBuffer(resWidth * resHeight * 4);
+
+    // START MENU
+    cout << "\n===RENDERER===\n\n"
+         << "To Pause Hold ESCAPE\n\n";
+
     // ========================================
     // WINDOW OPENER
     // ========================================
     while (!glfwWindowShouldClose(window)) // keeps window up until closed by user
     {
+
         glfwPollEvents(); // keeps event queue from overflowing (events are constantly being made)
+
+        // Pause Handler
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        {
+            cout << "\n\n--Program Paused--\n";
+            inMenu = true;
+
+            // Pause Loop
+            while (inMenu)
+            {
+                cout << "1. Save Image\n"
+                     << "2. Continue\n"
+                     << "0. Terminate\n";
+                cout << "What would you like to do?\n";
+
+                cin >> choice;
+
+                switch (choice)
+                {
+                case (0):
+                    glfwSetWindowShouldClose(window, true);
+                    inMenu = false;
+                    break;
+
+                case (1):
+                    glBindTexture(GL_TEXTURE_2D, texID);
+                    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, pixelBuffer.data());
+                    imageSaver(pixelBuffer, resWidth, resHeight);
+                    break;
+
+                case (2):
+                    inMenu = false;
+                    break;
+
+                default:
+                    cout << "Invalid...\n";
+                    break;
+                }
+            }
+
+            inMenu = true;
+        }
 
         // WAKE UP GPU
         glUseProgram(compProg); // binds compute shader file
+
+        // SEND SAMPLE COUNT
+        glUniform1f(sampleCountLoc, sampleCount);
 
         // EXECUTE GPU WORK GROUPS
         glDispatchCompute(resWidth / 16, resHeight / 16, 1); // work groups of 16 x 16 filling screen res
@@ -258,6 +324,10 @@ int main()
         glDrawArrays(GL_TRIANGLES, 0, 6); // starting indices of triangles
 
         glfwSwapBuffers(window); // keeps display updated / swaps buffer
+
+        // SAMPLE COUNT
+        sampleCount += 4;
+        std::cout << "Total Samples: " << sampleCount << endl;
     }
 
     // TERMINATE
@@ -267,4 +337,41 @@ int main()
     glDeleteProgram(compProg);
     glfwTerminate(); // terminate window
     return 0;        // terminate program
+}
+
+// Save Image
+void imageSaver(std::vector<float> &pixelBuffer, int width, int height)
+{
+    cout << "\nSaving Image...\n";
+
+    // Image Buffer
+    unsigned char *byteData = new unsigned char[width * height * 3];
+
+    // Loop Through, Convert Float to Bytes
+    for (int i = 0; i < width * height; i++)
+    {
+        // INCOMING VECTOR (RGBA)
+        int inIndex = i * 4;
+        // OUTGOING VECTOR (RGB)
+        int outIndex = i * 3;
+        float r = glm::clamp(pixelBuffer[inIndex], 0.0f, 1.0f);
+        float g = glm::clamp(pixelBuffer[inIndex + 1], 0.0f, 1.0f);
+        float b = glm::clamp(pixelBuffer[inIndex + 2], 0.0f, 1.0f);
+
+        byteData[outIndex] = static_cast<unsigned char>(r * 255.0f);
+        byteData[outIndex + 1] = static_cast<unsigned char>(g * 255.0f);
+        byteData[outIndex + 2] = static_cast<unsigned char>(b * 255.0f);
+    }
+
+    // Flip Image
+    stbi_flip_vertically_on_write(true);
+
+    stbi_write_png("Render.png", width, height, 3, byteData, width * 3);
+
+    cout << "\nImage Saved...\n";
+
+    // Clean up
+    delete[] byteData;
+
+    return;
 }
