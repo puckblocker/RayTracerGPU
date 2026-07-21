@@ -205,25 +205,25 @@ layout(std430, binding = 4) buffer xFormBuffer
 // ----------------------------------------
 // LIGHT BLUEPRINTS
 // ----------------------------------------
-struct pLight
+layout(std140, binding = 5) uniform pointLightBuffer
 {
-    vec3 origin; // light position in global coords
+    vec3 origin;
     float padding10;
 
-    vec3 color;  // color / power
+    vec3 color;
     float padding11;
-};
+} pLight;
 
-struct dLight
+layout(std140, binding = 6) uniform dirLightBuffer
 {
     vec3 direction;
     float padding12;
 
     vec3 color;
     float padding13;
-};
+} dLight;
 
-struct aLight
+layout(std140, binding = 7) uniform areaLightBuffer
 {
     vec3 origin;
     float padding14;
@@ -234,12 +234,12 @@ struct aLight
     vec3 normal;
     float padding16;
 
-    vec3 u; // width & rotation
+    vec3 u;
     float padding17;
     
-    vec3 v; // height & rotation
+    vec3 v;
     float padding18;
-};
+} aLight;
 
 // ========================================
 // FORWARD DECLARATIONS
@@ -260,9 +260,9 @@ vec3 LayeredBxDF(HitInfo, vec3, inout vec3, inout float);
 vec3 DirectBxDF(HitInfo, vec3, vec3);
 vec3 BxDF(HitInfo, vec3, inout vec3, inout float);
 
-vec3 pointLight(pLight, HitInfo, vec3, float);
-vec3 directionalLight(dLight, HitInfo, vec3);
-vec3 areaLight(aLight, HitInfo, vec3, float);
+vec3 pointLight(HitInfo, vec3, float);
+vec3 directionalLight(HitInfo, vec3);
+vec3 areaLight(HitInfo, vec3, float);
 
 LocalSpaceData localSpacePrep(Ray, uint);
 HitInfo intersectSphere(Ray, Sphere);
@@ -915,7 +915,7 @@ vec3 BxDF(HitInfo hitInfo, vec3 w0, inout vec3 wi, inout float pdf)
 // ========================================
 
 // Point Light (No Geometry To Hit)
-vec3 pointLight(pLight light, HitInfo hitInfo, vec3 wi, float dist)
+vec3 pointLight(HitInfo hitInfo, vec3 wi, float dist)
 {
     // PDF is 1
     // VARIABLES
@@ -928,44 +928,44 @@ vec3 pointLight(pLight light, HitInfo hitInfo, vec3 wi, float dist)
     // fr(p, wo, wi) >= 0, BRDF never negative // fr(p, wo, wi) = fr(p,wi,w0) Helmhotz, direction of calc doesn't matter // Energy conservation, BRDF doesn't create energy
 
     // EMITTED RADIANCE
-    dist = length(light.origin - point);
+    dist = length(pLight.origin - point);
     float attentuation = 1.0 / (dist * dist); // reduce lighting effect
-    wi = (light.origin - point) / dist;        // wi (incoming direction)
+    wi = (pLight.origin - point) / dist;        // wi (incoming direction)
 
     // Irradiance
-    vec3 Le = light.color * attentuation; // irradiance
+    vec3 Le = pLight.color * attentuation; // irradiance
     return Le;
 }
 
 // Directional Light (Infinite)
-vec3 directionalLight(dLight light, HitInfo hitInfo, vec3 wi)
+vec3 directionalLight(HitInfo hitInfo, vec3 wi)
 {
     // PDF is 1.0
     // Light Direction
-    wi = normalize(-light.direction);
+    wi = normalize(-dLight.direction);
 
     // Irradiance
-    vec3 Le = light.color;
+    vec3 Le = dLight.color;
     return Le;
 }
 
 // Area Light
-vec3 areaLight(aLight light, HitInfo hitInfo, vec3 wi, float dist)
+vec3 areaLight(HitInfo hitInfo, vec3 wi, float dist)
 {
     // Random Values
     float X0 = RandFloat();
     float Xi = RandFloat();
 
     // SAMPLING
-    vec3 randPoint = light.origin + (X0 * light.u) + (Xi * light.v);
+    vec3 randPoint = aLight.origin + (X0 * aLight.u) + (Xi * aLight.v);
 
     // Calculations
-    float A = length(cross(light.u, light.v)); // surface area
+    float A = length(cross(aLight.u, aLight.v)); // surface area
     dist = length(randPoint - hitInfo.point);
     wi = (randPoint - hitInfo.point) / dist;
 
     // Irradiance
-    vec3 Le = light.color / (pi * A);
+    vec3 Le = aLight.color / (pi * A);
 
     return Le;
 }
@@ -1310,23 +1310,20 @@ vec3 tracer(Ray ray)
             vec3 Le;
 
             // INSTANTIATE LIGHT STRUCTS
-            pLight crntPointLight;
-            dLight crntDirLight;
-            aLight crntAreaLight;
 
-            if (length(crntPointLight.color) > 0.0)
+            if (length(pLight.color) > 0.0)
             {
-                Le = pointLight(crntPointLight, hitInfo, wiDirect, lightDist);
+                Le = pointLight(hitInfo, wiDirect, lightDist);
             }
 
-            else if (length(crntAreaLight.color) > 0.0)
+            else if (length(aLight.color) > 0.0)
             {
-                Le = areaLight(crntAreaLight, hitInfo, wiDirect, lightDist);
+                Le = areaLight(hitInfo, wiDirect, lightDist);
             }
 
-            else if (length(crntDirLight.color) > 0.0)
+            else if (length(dLight.color) > 0.0)
             {
-                Le = directionalLight(crntDirLight, hitInfo, wiDirect);
+                Le = directionalLight(hitInfo, wiDirect);
             }
 
             // Generate Shadows
