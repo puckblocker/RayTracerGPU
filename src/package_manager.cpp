@@ -176,14 +176,14 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
             // VARIABLES
             Intersect::xForm trnsfrm;
             trnsfrm.transform = glm::mat4(1.0f);
-            glm::vec4 rot(1.0f);
+            glm::vec3 rot(1.0f);
             glm::vec3 trns(1.0f);
             float scale = 1.0f;
 
             // OBJECT IDs
             file >> trnsfrm.crntID >> trnsfrm.prntID;
             // ROTATION
-            file >> rot.x >> rot.y >> rot.z >> rot.w;
+            file >> rot.x >> rot.y >> rot.z;
             // TRANSLATION
             file >> trns.x >> trns.y >> trns.z;
             // SCALE
@@ -194,7 +194,9 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
             // NaN CHECK FROM ROTATION (prevent division by zero)
             if (glm::length(glm::vec3(rot)) > 0.0001f)
             {
-                trnsfrm.transform = glm::rotate(trnsfrm.transform, glm::radians(rot.w), glm::vec3(rot));
+                trnsfrm.transform = glm::rotate(trnsfrm.transform, glm::radians(rot.x), glm::vec3(1.0f, 0.0f, 0.0f));
+                trnsfrm.transform = glm::rotate(trnsfrm.transform, glm::radians(rot.y), glm::vec3(0.0f, 1.0f, 0.0f));
+                trnsfrm.transform = glm::rotate(trnsfrm.transform, glm::radians(rot.z), glm::vec3(0.0f, 0.0f, 1.0f));
             }
             trnsfrm.transform = glm::scale(trnsfrm.transform, glm::vec3(scale));
 
