@@ -191,7 +191,11 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
 
             // TRANSFORMS
             trnsfrm.transform = glm::translate(trnsfrm.transform, trns);
-            trnsfrm.transform = glm::rotate(trnsfrm.transform, glm::radians(rot.w), glm::vec3(rot));
+            // NaN CHECK FROM ROTATION (prevent division by zero)
+            if (glm::length(glm::vec3(rot)) > 0.0001f)
+            {
+                trnsfrm.transform = glm::rotate(trnsfrm.transform, glm::radians(rot.w), glm::vec3(rot));
+            }
             trnsfrm.transform = glm::scale(trnsfrm.transform, glm::vec3(scale));
 
             newPackage.xForms.push_back(trnsfrm);

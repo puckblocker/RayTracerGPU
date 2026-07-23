@@ -1,11 +1,14 @@
-**Additional Features to Add In Order**
+**Additional Features to Add In Order**Fix transforms
+Fix transforms
+Fix emission
 Add multiple light support
-Tone mapping
+Alter scene reader to handle obj files
+Create a gui
+tone mapping
+Reformat loadscene in package_manager
+
 Bring spectral rendering back
 Alter scene reader to handle obj files and such
 Add a power stat to lights
-Fix transforms
 Add Volumetric
-Add animation capabilities1
-Reformat loadscene in package_manager
-Create a gui for the program
+Add animation capabilities
