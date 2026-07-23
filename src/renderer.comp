@@ -1097,7 +1097,7 @@ HitInfo intersectSphere(Ray ray, Sphere sphere)
         if (newSDF < 0.0001f)
         {
             hitInfo.valid = true;
-            hitInfo.distance = crntDist * ls.scale;
+            hitInfo.distance = crntDist;
             hitInfo.objID = sphere.objID;
             hitInfo.albedo = sphere.albedo;
             hitInfo.roughness = sphere.roughness;
@@ -1225,7 +1225,7 @@ HitInfo intersectPlane(Ray ray, Plane plane)
         if(sdf < threshold)
         {
             hitInfo.valid = true;
-            hitInfo.distance = crntDist * ls.scale;
+            hitInfo.distance = crntDist;
             hitInfo.objID = plane.objID;
             hitInfo.albedo = plane.albedo;
             hitInfo.roughness = plane.roughness;
