@@ -1,6 +1,4 @@
 **Additional Features to Add In Order**
-Add multiple light support
-Add emissive object support
 Alter scene reader to handle obj files
 Create a gui
 tone mapping

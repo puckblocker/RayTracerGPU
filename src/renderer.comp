@@ -1532,48 +1532,41 @@ HitInfo intersectTriangle(Ray ray, Triangle triangle)
 // ----------------------------------------
 HitInfo intersectPlane(Ray ray, Plane plane)
 {
-    // VARIABLES
     LocalSpaceData ls = localSpacePrep(ray, plane.objID);
     HitInfo hitInfo;
     hitInfo.valid = false;
 
-    float crntDist = 0.0;
-    int maxSteps = 200;
-    float threshold = 0.001f;
+    // RAY CASTING
+    float denom = dot(ls.localRay.direction, plane.normal);
 
-    // RAY MARCHING
-    for (int i = 0; i < maxSteps; i++)
+    if(abs(denom) < 0.0001)
+        return hitInfo;
+        
+    float dist = -dot(ls.localRay.origin - plane.position, plane.normal) / denom;
+
+    // INTERSECT CHECKS
+    if (dist > 0.001)
     {
-        // CALCULATIONS
-        vec3 point = ls.localRay.origin + ls.localRay.direction * crntDist;
-        float sdf = abs(dot((point - plane.position), plane.normal)); // signed distance function (distance from current position to object)
+        vec3 point = ls.localRay.origin + ls.localRay.direction * dist;
 
-        // INTERSECT CHECKS
-        if(sdf < threshold)
-        {
-            hitInfo.valid = true;
-            hitInfo.distance = crntDist;
-            hitInfo.objID = plane.objID;
-            hitInfo.albedo = plane.albedo;
-            hitInfo.roughness = plane.roughness;
-            hitInfo.metallic = plane.metallic;
-            hitInfo.ior = plane.ior;
-            hitInfo.emissive = plane.emissive;
-            hitInfo.z = plane.z;
-            hitInfo.layerIOR = plane.layerIOR;
-            hitInfo.point = vec3(ls.localToWrld * vec4(point, 1.0));
-            hitInfo.normal = normalize(ls.nrmMtrx * plane.normal);
+        hitInfo.valid = true;
+        hitInfo.distance = dist;
+        hitInfo.objID = plane.objID;
+        hitInfo.albedo = plane.albedo;
+        hitInfo.roughness = plane.roughness;
+        hitInfo.metallic = plane.metallic;
+        hitInfo.ior = plane.ior;
+        hitInfo.emissive = plane.emissive;
+        hitInfo.z = plane.z;
+        hitInfo.layerIOR = plane.layerIOR;
+        hitInfo.point = vec3(ls.localToWrld * vec4(point, 1.0));
+        hitInfo.normal = normalize(ls.nrmMtrx * plane.normal);
 
-            return hitInfo;
-        }
-
-        // MARCH
-        crntDist += sdf; // current step distance (how far step will travel)
-
-        // BREAK OUT
-        if (crntDist > 100.0)
-            break; // unlikely to hit, optimization
+        return hitInfo;
     }
+
+    else
+        hitInfo.valid = false;
 
     return hitInfo;
 }
