@@ -206,25 +206,36 @@ layout(std430, binding = 4) buffer xFormBuffer
 // ----------------------------------------
 // LIGHT BLUEPRINTS
 // ----------------------------------------
-layout(std140, binding = 5) uniform pointLightBuffer
+
+struct pLight
 {
     vec3 origin;
     float padding10;
 
     vec3 color;
     float padding11;
-} pLight;
+};
 
-layout(std140, binding = 6) uniform dirLightBuffer
+layout(std430, binding = 5) buffer pointLightBuffer
+{
+    pLight pLights[];
+};
+
+struct dLight
 {
     vec3 direction;
     float padding12;
 
     vec3 color;
     float padding13;
-} dLight;
+};
 
-layout(std140, binding = 7) uniform areaLightBuffer
+layout(std430, binding = 6) buffer dirLightBuffer
+{
+    dLight dLights[];
+};
+
+struct aLight
 {
     vec3 origin;
     float padding14;
@@ -240,12 +251,18 @@ layout(std140, binding = 7) uniform areaLightBuffer
     
     vec3 v;
     float padding18;
-} aLight;
+};
+
+layout(std430, binding = 7) buffer areaLightBuffer
+{
+    aLight aLights[];
+};
 
 // ========================================
 // FORWARD DECLARATIONS
 // ========================================
 vec3 tracer(Ray);
+vec3 directLighting(inout HitInfo, inout Ray, inout vec3, vec3, vec3, float);
 
 Ray rayGeneration(float, float, Camera, Ray, Basis, Viewport, Image);
 
@@ -261,9 +278,9 @@ vec3 LayeredBxDF(HitInfo, vec3, inout vec3, inout float);
 vec3 DirectBxDF(HitInfo, vec3, vec3);
 vec3 BxDF(HitInfo, vec3, inout vec3, inout float);
 
-vec3 pointLight(HitInfo, vec3, float);
-vec3 directionalLight(HitInfo, vec3);
-vec3 areaLight(HitInfo, vec3, float);
+vec3 pointLight(HitInfo, inout vec3, inout float, int);
+vec3 directionalLight(HitInfo, inout vec3, int);
+vec3 areaLight(HitInfo, inout vec3, inout float, int);
 
 LocalSpaceData localSpacePrep(Ray, uint);
 HitInfo intersectSphere(Ray, Sphere);
@@ -354,6 +371,307 @@ void main() {
     
     // STORE IMAGE
     imageStore(screenOutput, pixelCoords, vec4(color, 1.0));
+}
+
+// ========================================
+// TRACER FUNCTION
+// ========================================
+vec3 tracer(Ray ray)
+{
+    vec3 finalColor = vec3(0.0);
+    vec3 tempColor = vec3(1.0); // act as if light was hit
+    vec3 specCoeff = vec3(0.0);
+
+    Ray bounceRay;
+
+    bounceRay = ray;
+
+    // MAX DEPTH CHECK
+    for (int depthIndex = 0; depthIndex < 5; depthIndex++)
+    {
+        HitInfo hitInfo;
+        hitInfo.valid = false;
+        hitInfo.distance = 1000000.0;  
+
+        // ----------------------------------------
+        // INTERSECTION CHECK
+        // ----------------------------------------
+
+        // SPHERE CHECK
+        HitInfo tempHit;
+        int i = 0;
+        for (i = 0; i < spheres.length(); i++)
+        {
+            tempHit = intersectSphere(bounceRay, spheres[i]);
+            if (tempHit.valid && tempHit.distance < hitInfo.distance)
+            {
+                hitInfo = tempHit;
+            }
+        }
+
+        // PLANE CHECK
+        for (i = 0; i < planes.length(); i++)
+        {
+            tempHit = intersectPlane(bounceRay, planes[i]);
+            if (tempHit.valid && tempHit.distance < hitInfo.distance)
+            {
+                hitInfo = tempHit;
+            }
+        }
+
+        // TRIANGLE CHECK
+        for (i = 0; i < triangles.length(); i++)
+        {
+            tempHit = intersectTriangle(bounceRay, triangles[i]);
+            if (tempHit.valid && tempHit.distance < hitInfo.distance)
+            {
+                hitInfo = tempHit;
+            }
+        }
+
+        // ----------------------------------------
+        // NON EMISSIVE OBJECT HIT
+        // ----------------------------------------
+        if (hitInfo.valid && hitInfo.emissive == false)
+        {
+            float pdf = 1.0;
+            vec3 w0;
+            vec3 directLight = vec3(0.0);
+            vec3 wiDirect;
+            vec3 Le;
+            float lightDist = 1.0;
+
+            // ----------------------------------------
+            // DIRECT LIGHTING (MULTI LIGHT SUPPORT)
+            // ----------------------------------------
+            
+            // POINT LIGHTS
+            for(i = 0; i < pLights.length(); i++)
+            {
+                if (length(pLights[i].color) > 0.0)
+                {
+                    Le = pointLight(hitInfo, wiDirect, lightDist, i);
+                    directLight += directLighting(hitInfo, bounceRay, w0, Le, wiDirect, lightDist);
+                }
+
+                else
+                {
+                    break;
+                }
+            }
+
+            // DIRECTION LIGHTS
+            for(i = 0; i < dLights.length(); i++)
+            {
+                if (length(dLights[i].color) > 0.0)
+                {
+                    Le = directionalLight(hitInfo, wiDirect, i);
+                    directLight += directLighting(hitInfo, bounceRay, w0, Le, wiDirect, lightDist);
+                }
+
+                else
+                {
+                    break;
+                }
+            }
+
+            // AREA LIGHTS
+            for(i = 0; i < aLights.length(); i++)
+            {
+                if (length(aLights[i].color) > 0.0)
+                {
+                    Le = areaLight(hitInfo, wiDirect, lightDist, i);
+                    directLight += directLighting(hitInfo, bounceRay, w0, Le, wiDirect, lightDist);
+                }
+
+                else
+                {
+                    break;
+                }
+            }
+
+            // EMISSIVE SPHERES
+            for(i = 0; i < spheres.length(); i++)
+            {
+                if (spheres[i].emissive == true)
+                {
+                    // RANDOM SAMPLING
+                    float X0 = RandFloat();
+                    float Xi = RandFloat();
+
+                    // CONVERT POINT TO ANGLE FOR SPHERE
+                    float phi = X0 * 2.0 * pi;
+                    float cosTheta = 1.0 - 2.0 * Xi;
+                    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+
+                    // CONVERT TO CARTESIAN
+                    float X = sinTheta * cos(phi);
+                    float Y = sinTheta * sin(phi);
+                    float Z = cosTheta;
+
+                    vec3 randPoint = spheres[i].center + (vec3(X, Y, Z) * spheres[i].radius);
+                    lightDist = length(randPoint - hitInfo.point);
+
+                    wiDirect = (randPoint - hitInfo.point) / lightDist;
+                    float A = 4 * pi * (spheres[i].radius  * spheres[i].radius);
+                    vec3 sphereNormal = normalize(randPoint - spheres[i].center);
+
+                    // RETURN DIRECT LIGHTING
+                    Le = spheres[i].albedo * ((A * max(dot(sphereNormal, -wiDirect), 0.0)) / (lightDist * lightDist));
+                    directLight += directLighting(hitInfo, bounceRay, w0, Le, wiDirect, lightDist);
+                }
+                else
+                    continue;
+            }
+
+            // EMISSIVE TRIANGLES
+            for(i = 0; i < triangles.length(); i++)
+            {
+                if (triangles[i].emissive == true)
+                {
+                    // GRAB EDGES
+                    vec3 edge1 = triangles[i].p1 - triangles[i].p0;
+                    vec3 edge2 = triangles[i].p2 - triangles[i].p0;
+
+                    // BARYCENTRIC COORDS
+                    float u = RandFloat();
+                    float v = RandFloat();
+                    if (u + v > 1.0)  // guarantee barycentric rules followed
+                    {
+                        u = 1.0 - u;
+                        v = 1.0 - v;
+                    }
+                    float w = 1.0 - u - v;
+
+                    // RANDOM SAMPLING
+                    vec3 randPoint = (triangles[i].p0 * u) + (triangles[i].p1 * v) + (triangles[i].p2 * w);
+                    lightDist = length(randPoint - hitInfo.point);
+
+                    wiDirect = (randPoint - hitInfo.point) / lightDist;
+                    float A = 0.5 * length(cross(edge1, edge2));
+                    vec3 triNormal = normalize(cross(edge1, edge2));
+
+                    // RETURN DIRECT LIGHTING
+                    Le = triangles[i].albedo * ((A * max(dot(triNormal, -wiDirect), 0.0)) / (lightDist * lightDist));
+                    directLight += directLighting(hitInfo, bounceRay, w0, Le, wiDirect, lightDist);
+                }
+                else
+                    continue;
+            }
+
+            // INDIRECT LIGHT
+            vec3 wiIndirect;
+            vec3 rflctIndirect;
+
+            if (hitInfo.z == 0.0)
+            {
+                rflctIndirect = BxDF(hitInfo, w0, wiIndirect, pdf);
+            }
+            else
+            {
+                rflctIndirect = LayeredBxDF(hitInfo, w0, wiIndirect, pdf);
+            }
+
+            bounceRay.direction = wiIndirect;
+            vec3 normOffset = dot(wiIndirect, hitInfo.normal) < 0.0 ? -hitInfo.normal : hitInfo.normal; // prevent self intersection
+            bounceRay.origin = hitInfo.point + (normOffset * 0.002f);
+
+            // Indirect Light Calculation
+            finalColor += tempColor * directLight; 
+
+            float nDotwi = abs(dot(hitInfo.normal, wiIndirect)); // lambert's cos law
+            tempColor *= (rflctIndirect * nDotwi) / pdf;
+        }
+
+        // ----------------------------------------
+        // EMISSIVE OBJECT HIT
+        // ----------------------------------------
+        else if(hitInfo.emissive == true)
+        {
+            finalColor += tempColor * hitInfo.albedo;
+
+            break;
+        }
+        
+        // ----------------------------------------
+        // NON HIT
+        // ----------------------------------------
+        else
+        {
+            // Set Sky Color
+            finalColor += tempColor * vec3(0.69f, 0.88f, 1.0);
+
+            break;
+        }
+    }
+
+    // Max Radiance Clamp (Firefly fix (GREEN))
+    float maxRad = 10.0;
+    finalColor.x = min(finalColor.x, maxRad);
+    finalColor.y = min(finalColor.y, maxRad);
+    finalColor.z = min(finalColor.z, maxRad);
+
+    return finalColor;
+}
+
+// ========================================
+// DIRECT LIGHTING
+// ========================================
+vec3 directLighting(inout HitInfo hitInfo, inout Ray bounceRay, inout vec3 w0, vec3 Le, vec3 wiDirect, float lightDist)
+{
+    int i;
+
+    // ----------------------------------------
+    // CREATE SHADOWS
+    // ----------------------------------------
+    bool inShadow = false;
+    Ray shadowRay;
+    shadowRay.origin = hitInfo.point + (hitInfo.normal * 0.01f); // offset to avoid self shadowing
+    shadowRay.direction = wiDirect;
+
+    // SHADOW BLOCK CHECK SPHERE
+    HitInfo shadowHit;
+    for (i = 0; i < spheres.length(); i++)
+    {
+        shadowHit = intersectSphere(shadowRay, spheres[i]);
+        if (shadowHit.valid && shadowHit.distance < (lightDist - 0.0001) && hitInfo.objID != shadowHit.objID) // Check for hit and behind object
+            inShadow = true;
+    }
+
+    // SHADOW BLOCK CHECK TRIANGLE
+    for (i = 0; i < triangles.length(); i++)
+    {
+        shadowHit = intersectTriangle(shadowRay, triangles[i]);
+        if (shadowHit.valid && shadowHit.distance < (lightDist - 0.0001) && hitInfo.objID != shadowHit.objID)
+            inShadow = true;
+    }
+
+    // SHADOW BLOCK CHECK PLANE
+    for (i = 0; i < planes.length(); i++)
+    {
+        shadowHit = intersectPlane(shadowRay, planes[i]);
+        if (shadowHit.valid && shadowHit.distance < (lightDist - 0.0001) && hitInfo.objID != shadowHit.objID)
+            inShadow = true;
+    }
+
+    // COLOR / REFLECTANCE (BRDF)
+    vec3 R = hitInfo.albedo;
+    w0 = -bounceRay.direction;
+    vec3 directLight = vec3(0.0);
+
+    // ----------------------------------------
+    // CALCULATE DIRECT LIGHTING
+    // ----------------------------------------
+    if (!inShadow)
+    {
+        // DIRECT LIGHTING
+        vec3 rflctDirect = DirectBxDF(hitInfo, w0, wiDirect);
+
+        float nDotWi = dot(hitInfo.normal, wiDirect); // lambert's cos law
+        directLight = rflctDirect * nDotWi * Le;
+    }
+
+    return directLight;
 }
 
 // ========================================
@@ -563,6 +881,10 @@ vec3 DirectBxDF(HitInfo hitInfo, vec3 w0, vec3 wi)
     {
         return vec3(0.0);
     }
+
+    // GRAZING ANGLE FIX
+    nDotW0 = max(nDotW0, 0.0001);
+    nDotWi = max(nDotWi, 0.0001);
 
     vec3 wh = normalize(w0 + wi); // half-way vector
 
@@ -916,7 +1238,7 @@ vec3 BxDF(HitInfo hitInfo, vec3 w0, inout vec3 wi, inout float pdf)
 // ========================================
 
 // Point Light (No Geometry To Hit)
-vec3 pointLight(HitInfo hitInfo, vec3 wi, float dist)
+vec3 pointLight(HitInfo hitInfo, inout vec3 wi, inout float dist, int index)
 {
     // PDF is 1
     // VARIABLES
@@ -929,44 +1251,45 @@ vec3 pointLight(HitInfo hitInfo, vec3 wi, float dist)
     // fr(p, wo, wi) >= 0, BRDF never negative // fr(p, wo, wi) = fr(p,wi,w0) Helmhotz, direction of calc doesn't matter // Energy conservation, BRDF doesn't create energy
 
     // EMITTED RADIANCE
-    dist = length(pLight.origin - point);
+    dist = length(pLights[index].origin - point);
     float attentuation = 1.0 / (dist * dist); // reduce lighting effect
-    wi = (pLight.origin - point) / dist;        // wi (incoming direction)
+    wi = (pLights[index].origin - point) / dist;        // wi (incoming direction)
 
     // Irradiance
-    vec3 Le = pLight.color * attentuation; // irradiance
+    vec3 Le = pLights[index].color * attentuation; // irradiance
     return Le;
 }
 
 // Directional Light (Infinite)
-vec3 directionalLight(HitInfo hitInfo, vec3 wi)
+vec3 directionalLight(HitInfo hitInfo, inout vec3 wi, int index)
 {
     // PDF is 1.0
     // Light Direction
-    wi = normalize(-dLight.direction);
+    wi = normalize(-dLights[index].direction);
 
     // Irradiance
-    vec3 Le = dLight.color;
+    vec3 Le = dLights[index].color;
     return Le;
 }
 
 // Area Light
-vec3 areaLight(HitInfo hitInfo, vec3 wi, float dist)
+vec3 areaLight(HitInfo hitInfo, inout vec3 wi, inout float dist, int index)
 {
     // Random Values
     float X0 = RandFloat();
     float Xi = RandFloat();
 
     // SAMPLING
-    vec3 randPoint = aLight.origin + (X0 * aLight.u) + (Xi * aLight.v);
+    vec3 randPoint = aLights[index].origin + (X0 * aLights[index].u) + (Xi * aLights[index].v);
 
     // Calculations
-    float A = length(cross(aLight.u, aLight.v)); // surface area
+    float A = length(cross(aLights[index].u, aLights[index].v)); // surface area
     dist = length(randPoint - hitInfo.point);
     wi = (randPoint - hitInfo.point) / dist;
 
     // Irradiance
-    vec3 Le = aLight.color / (pi * A);
+    //vec3 Le = aLights[index].color / (pi * A);
+    vec3 Le = aLights[index].color * ((A * max(dot(aLights[index].normal, -wi), 0.0)) / (dist * dist));
 
     return Le;
 }
@@ -1136,10 +1459,13 @@ HitInfo intersectTriangle(Ray ray, Triangle triangle)
     HitInfo hitInfo;
     hitInfo.valid = false;
 
+    // GRAB EDGES
     vec3 edge1 = triangle.p1 - triangle.p0;
     vec3 edge2 = triangle.p2 - triangle.p0;
+
+    // BARYCENTRIC COORDINATES
     vec3 h = cross(ls.localRay.direction, edge2);
-    float a = dot(edge1, h);
+    float a = dot(edge1, h);    // determinant (helps check if parallel to plane)
 
     // CHECK FOR PARALLEL OR INSIDE PLANE OF TRIANGLE (If a is near 0)
     if (abs(a) < 0.0001)
@@ -1150,9 +1476,9 @@ HitInfo intersectTriangle(Ray ray, Triangle triangle)
 
     float f = 1.0 / a;
     vec3 s = ls.localRay.origin - triangle.p0;
-    float u = f * dot(s, h);
+    float u = f * dot(s, h);    // first barycentric coord
 
-    // INTERSECTION OUT OF TRIANGLE BOUNDS
+    // INTERSECTION OUT OF TRIANGLE BOUNDS (Hit plane, but missed triangle)
     if (u < 0.0 || u > 1.0)
     {
         hitInfo.valid = false;
@@ -1160,8 +1486,9 @@ HitInfo intersectTriangle(Ray ray, Triangle triangle)
     }
 
     vec3 q = cross(s, edge1);
-    float v = f * dot(ls.localRay.direction, q);
+    float v = f * dot(ls.localRay.direction, q);    // second barycentric coord
 
+    // CHECK FOR INSIDE TRIANGLE (Checks the second and thrid edge)
     if (v < 0.0 || u + v > 1.0)
     {
         hitInfo.valid = false;
@@ -1249,165 +1576,4 @@ HitInfo intersectPlane(Ray ray, Plane plane)
     }
 
     return hitInfo;
-}
-
-// ========================================
-// TRACER FUNCTION
-// ========================================
-vec3 tracer(Ray ray)
-{
-    vec3 finalColor = vec3(0.0);
-    vec3 tempColor = vec3(1.0); // act as if light was hit
-    vec3 specCoeff = vec3(0.0);
-
-    Ray bounceRay;
-
-    bounceRay = ray;
-
-    // MAX DEPTH CHECK
-    for (int depthIndex = 0; depthIndex < 5; depthIndex++)
-    {
-        // First Intersect
-        HitInfo hitInfo;
-        hitInfo.valid = false;
-        hitInfo.distance = 1000000.0;  
-
-        // Check For Sphere
-        HitInfo tempHit;
-        int i = 0;
-        for (i = 0; i < spheres.length(); i++)
-        {
-            tempHit = intersectSphere(bounceRay, spheres[i]);
-            if (tempHit.valid && tempHit.distance < hitInfo.distance)
-            {
-                hitInfo = tempHit;
-            }
-        }
-
-        // Check For Plane
-        for (i = 0; i < planes.length(); i++)
-        {
-            tempHit = intersectPlane(bounceRay, planes[i]);
-            if (tempHit.valid && tempHit.distance < hitInfo.distance)
-            {
-                hitInfo = tempHit;
-            }
-        }
-
-        // Check For Triangle
-        for (i = 0; i < triangles.length(); i++)
-        {
-            tempHit = intersectTriangle(bounceRay, triangles[i]);
-            if (tempHit.valid && tempHit.distance < hitInfo.distance)
-            {
-                hitInfo = tempHit;
-            }
-        }
-
-        // Non Light Hit
-        if (hitInfo.valid && hitInfo.emissive == false)
-        {
-            // VARIABLES
-            vec3 wiDirect;
-            float pdf = 1.0;
-            float lightDist = 1.0;
-
-            // LIGHT SAMPLING & SHADOWS
-            vec3 Le;
-
-            // INSTANTIATE LIGHT STRUCTS
-
-            if (length(pLight.color) > 0.0)
-            {
-                Le = pointLight(hitInfo, wiDirect, lightDist);
-            }
-
-            else if (length(aLight.color) > 0.0)
-            {
-                Le = areaLight(hitInfo, wiDirect, lightDist);
-            }
-
-            else if (length(dLight.color) > 0.0)
-            {
-                Le = directionalLight(hitInfo, wiDirect);
-            }
-
-            // Generate Shadows
-            bool inShadow = false;
-            Ray shadowRay;
-            shadowRay.origin = hitInfo.point + (hitInfo.normal * 0.01f); // offset to avoid self shadowing
-            shadowRay.direction = wiDirect;
-
-            // Shadow Block Check Sphere
-            HitInfo shadowHit;
-            for (i = 0; i < spheres.length(); i++)
-            {
-                shadowHit = intersectSphere(shadowRay, spheres[i]);
-                if (shadowHit.valid && shadowHit.distance < lightDist && hitInfo.objID != shadowHit.objID) // Check for hit and behind object
-                    inShadow = true;
-            }
-
-            // Shadow Block Check Plane
-            for (i = 0; i < planes.length(); i++)
-            {
-                shadowHit = intersectPlane(shadowRay, planes[i]);
-                if (shadowHit.valid && shadowHit.distance < lightDist && hitInfo.objID != shadowHit.objID)
-                    inShadow = true;
-            }
-
-            // COLOR / REFLECTANCE (BRDF)
-            vec3 R = hitInfo.albedo;
-            vec3 w0 = -bounceRay.direction;
-            vec3 directLight = vec3(0.0);
-
-            // Not In Shadow
-            if (!inShadow)
-            {
-                // DIRECT LIGHTING
-                vec3 rflctDirect = DirectBxDF(hitInfo, w0, wiDirect);
-
-                float nDotWi = dot(hitInfo.normal, wiDirect); // lambert's cos law
-                directLight = rflctDirect * nDotWi * Le;
-            }
-
-            // INDIRECT LIGHT
-            vec3 wiIndirect;
-            vec3 rflctIndirect;
-
-            if (hitInfo.z == 0.0)
-            {
-                rflctIndirect = BxDF(hitInfo, w0, wiIndirect, pdf);
-            }
-            else
-            {
-                rflctIndirect = LayeredBxDF(hitInfo, w0, wiIndirect, pdf);
-            }
-
-            bounceRay.direction = wiIndirect;
-            vec3 normOffset = dot(wiIndirect, hitInfo.normal) < 0.0 ? -hitInfo.normal : hitInfo.normal; // prevent self intersection
-            bounceRay.origin = hitInfo.point + (normOffset * 0.002f);
-
-            // Indirect Light Calculation
-            finalColor += tempColor * directLight; 
-
-            float nDotwi = abs(dot(hitInfo.normal, wiIndirect)); // lambert's cos law
-            tempColor *= (rflctIndirect * nDotwi) / pdf;
-        }
-        // Exited Scene
-        else
-        {
-            // Set Sky Color
-            finalColor += tempColor * vec3(0.69f, 0.88f, 1.0);
-
-            break;
-        }
-    }
-
-    // Max Radiance Clamp (Firefly fix (GREEN))
-    float maxRad = 10.0;
-    finalColor.x = min(finalColor.x, maxRad);
-    finalColor.y = min(finalColor.y, maxRad);
-    finalColor.z = min(finalColor.z, maxRad);
-
-    return finalColor;
 }

@@ -30,9 +30,9 @@ public:
         std::vector<Intersect::Plane> planes;
         std::vector<Intersect::Triangle> triangles;
         std::vector<Intersect::xForm> xForms;
-        Light::pLight pointLight;
-        Light::dLight directionalLight;
-        Light::aLight areaLight;
+        std::vector<Light::pLight> pointLights;
+        std::vector<Light::dLight> directionalLights;
+        std::vector<Light::aLight> areaLights;
     };
 
     // FUNCTION SIGNATURES

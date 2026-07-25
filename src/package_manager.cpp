@@ -115,8 +115,11 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
         // ========================================
         else if (type == "pLight")
         {
-            file >> newPackage.pointLight.origin.x >> newPackage.pointLight.origin.y >> newPackage.pointLight.origin.z;
-            file >> newPackage.pointLight.color.r >> newPackage.pointLight.color.g >> newPackage.pointLight.color.b;
+            Light::pLight newPointLight;
+            file >> newPointLight.origin.x >> newPointLight.origin.y >> newPointLight.origin.z;
+            file >> newPointLight.color.r >> newPointLight.color.g >> newPointLight.color.b;
+
+            newPackage.pointLights.push_back(newPointLight);
         }
 
         // ========================================
@@ -124,11 +127,14 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
         // ========================================
         else if (type == "aLight")
         {
-            file >> newPackage.areaLight.origin.x >> newPackage.areaLight.origin.y >> newPackage.areaLight.origin.z;
-            file >> newPackage.areaLight.color.r >> newPackage.areaLight.color.g >> newPackage.areaLight.color.b;
-            file >> newPackage.areaLight.normal.x >> newPackage.areaLight.normal.y >> newPackage.areaLight.normal.z;
-            file >> newPackage.areaLight.u.x >> newPackage.areaLight.u.y >> newPackage.areaLight.u.z;
-            file >> newPackage.areaLight.v.x >> newPackage.areaLight.v.y >> newPackage.areaLight.v.z;
+            Light::aLight newAreaLight;
+            file >> newAreaLight.origin.x >> newAreaLight.origin.y >> newAreaLight.origin.z;
+            file >> newAreaLight.color.r >> newAreaLight.color.g >> newAreaLight.color.b;
+            file >> newAreaLight.normal.x >> newAreaLight.normal.y >> newAreaLight.normal.z;
+            file >> newAreaLight.u.x >> newAreaLight.u.y >> newAreaLight.u.z;
+            file >> newAreaLight.v.x >> newAreaLight.v.y >> newAreaLight.v.z;
+
+            newPackage.areaLights.push_back(newAreaLight);
         }
 
         // ========================================
@@ -136,8 +142,11 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
         // ========================================
         else if (type == "dLight")
         {
-            file >> newPackage.directionalLight.direction.x >> newPackage.directionalLight.direction.y >> newPackage.directionalLight.direction.z;
-            file >> newPackage.directionalLight.color.r >> newPackage.directionalLight.color.g >> newPackage.directionalLight.color.b;
+            Light::dLight newDirLight;
+            file >> newDirLight.direction.x >> newDirLight.direction.y >> newDirLight.direction.z;
+            file >> newDirLight.color.r >> newDirLight.color.g >> newDirLight.color.b;
+
+            newPackage.directionalLights.push_back(newDirLight);
         }
 
         // ========================================

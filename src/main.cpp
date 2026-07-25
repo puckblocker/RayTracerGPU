@@ -225,20 +225,20 @@ int main()
     // POINT
     GLuint pLightID;
     glCreateBuffers(1, &pLightID);
-    glNamedBufferData(pLightID, sizeof(Light::pLight), &packageInfo.pointLight, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 5, pLightID);
+    glNamedBufferData(pLightID, packageInfo.pointLights.size() * sizeof(Light::pLight), packageInfo.pointLights.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, pLightID);
 
     // DIRECTIONAL
     GLuint dLightID;
     glCreateBuffers(1, &dLightID);
-    glNamedBufferData(dLightID, sizeof(Light::dLight), &packageInfo.directionalLight, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 6, dLightID);
+    glNamedBufferData(dLightID, packageInfo.directionalLights.size() * sizeof(Light::dLight), packageInfo.directionalLights.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, dLightID);
 
     // AREA
     GLuint aLightID;
     glCreateBuffers(1, &aLightID);
-    glNamedBufferData(aLightID, sizeof(Light::aLight), &packageInfo.areaLight, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 7, aLightID);
+    glNamedBufferData(aLightID, packageInfo.areaLights.size() * sizeof(Light::aLight), packageInfo.areaLights.data(), GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, aLightID);
 
     // SAMPLE COUNT FOR PROGRESIVE
     float sampleCount = 0.0f;
