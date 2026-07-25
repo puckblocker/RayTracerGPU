@@ -77,10 +77,10 @@ namespace Intersect
         float roughness;
         float metallic;
         float ior;
-        float emissive;
+        int emissive;
         float z;        // depth
         float layerIOR; // ior for layered
-        int animated = false;
+        int animated = 0;
         float padding1 = 0.0f;
 
         glm::vec3 center;
@@ -97,10 +97,10 @@ namespace Intersect
         float roughness;
         float metallic;
         float ior;
-        float emissive;
+        int emissive;
         float z;        // depth
         float layerIOR; // ior for layered
-        int animated = false;
+        int animated = 0;
         float padding1 = 0.0f;
 
         glm::vec3 p0;
@@ -123,10 +123,10 @@ namespace Intersect
         float roughness;
         float metallic;
         float ior;
-        float emissive;
+        int emissive;
         float z;        // depth
         float layerIOR; // ior for layered
-        int animated = false;
+        int animated = 0;
         float padding5 = 0.0f;
 
         glm::vec3 position;

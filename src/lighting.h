@@ -22,7 +22,7 @@ public:
         glm::vec3 origin = glm::vec3(0.0f); // light position in global coords
         float padding1 = 0.0f;
 
-        glm::vec3 color = glm::vec3(0.0f);  // color / power
+        glm::vec3 color = glm::vec3(0.0f); // color / power
         float padding2 = 0.0f;
     };
 
@@ -54,7 +54,7 @@ public:
 
         glm::vec3 u; // width & rotation
         float padding4 = 0.0f;
-        
+
         glm::vec3 v; // height & rotation
         float padding5 = 0.0f;
     };
