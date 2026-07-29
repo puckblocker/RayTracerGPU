@@ -3,6 +3,8 @@ Alter scene reader to handle obj files
 Create a gui
 tone mapping
 
+Add bound boxes or kd tree
+texture mapping
 Bring spectral rendering back
 Alter scene reader to handle obj files and such
 Add a power stat to lights

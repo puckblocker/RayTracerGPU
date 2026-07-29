@@ -43,6 +43,16 @@ const char *fragmentShaderSource = "#version 330 core\n"
 
 // FORWARD DECLARATION
 void imageSaver(std::vector<float> &, int, int);
+static void menuManagerWindow(enum renderState);
+static void startMenuWindow(enum renderState);
+static void configMenuWindow();
+
+enum renderState
+{
+    rendering,
+    paused,
+    picture
+};
 
 // ========================================
 // MAIN CODE
@@ -54,6 +64,7 @@ int main()
     Packager newPackager;
     const int resWidth = 640;
     const int resHeight = 640;
+    renderState currentState = renderState::paused;
 
     // GLFW ERROR CHECKER
     if (!glfwInit())
@@ -249,6 +260,16 @@ int main()
     bool inMenu = false;
     std::vector<float> pixelBuffer(resWidth * resHeight * 4);
 
+    // ========================================
+    // GUI SETUP
+    // ========================================
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    (void)io;
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 460");
+
     // START MENU
     cout << "\n===RENDERER===\n\n"
          << "To Pause Hold ESCAPE\n\n";
@@ -319,18 +340,32 @@ int main()
         glClearColor(.75f, .5f, .75f, 1.0f); // set color that will be used to clear the screen
         glClear(GL_COLOR_BUFFER_BIT);        // clears screen with constant to tell which buffer to clear (color buffer)
 
+        // GUI NEW FRAME
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        ImGui::ShowDemoWindow();
+
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 6); // starting indices of triangles
 
+        menuManagerWindow(currentState);
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
         glfwSwapBuffers(window); // keeps display updated / swaps buffer
 
         // SAMPLE COUNT
-        sampleCount += 4;
-        std::cout << "Total Samples: " << sampleCount << endl;
+        // sampleCount += 4;
+        // std::cout << "Total Samples: " << sampleCount << endl;
     }
 
     // TERMINATE
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
@@ -374,4 +409,74 @@ void imageSaver(std::vector<float> &pixelBuffer, int width, int height)
     delete[] byteData;
 
     return;
+}
+
+static void menuManagerWindow(renderState currentState)
+{
+    ImGui::Begin("Path Tracer Config Menu");
+
+    if (ImGui::CollapsingHeader("Render"))
+    {
+        startMenuWindow(currentState);
+    }
+
+    if (ImGui::CollapsingHeader("Scene"))
+    {
+        configMenuWindow();
+    }
+
+    ImGui::End();
+}
+
+static void startMenuWindow(renderState currentState)
+{
+    if (ImGui::Button("Start"))
+    {
+        currentState = renderState::rendering;
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Pause"))
+    {
+        currentState = renderState::paused;
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Take Screenshot"))
+    {
+        currentState = renderState::picture;
+    }
+}
+
+static void configMenuWindow()
+{
+    if (ImGui::TreeNode("Scene File"))
+    {
+        static char str1[128] = "";
+        ImGui::InputTextWithHint("", "enter file name", str1, IM_COUNTOF(str1));
+        ImGui::Button("Use Selected Scene");
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNode("Scene Settings"))
+    {
+        ImGui::SeparatorText("Camera");
+        ImGui::SeparatorText("Viewport");
+        ImGui::SeparatorText("Depth Of Field");
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNode("Shapes"))
+    {
+        ImGui::SeparatorText("Spheres");
+        ImGui::SeparatorText("Triangles");
+        ImGui::SeparatorText("Planes");
+        ImGui::SeparatorText("Transforms");
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNode("Lighting"))
+    {
+        ImGui::SeparatorText("Point Lights");
+        ImGui::SeparatorText("Area Lights");
+        ImGui::SeparatorText("Directional Lights");
+        ImGui::TreePop();
+    }
 }

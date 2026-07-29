@@ -6,15 +6,25 @@ project(gpu_ray_tracer VERSION 1.0.0)
 # Find Package
 find_package(OpenGL REQUIRED)
 
+set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/imgui)
+
 # Build
 add_executable(gpu_ray_tracer
     src/main.cpp
     src/package_manager.cpp
     src/viewport.cpp 
-    src/glad.c)
+    src/glad.c
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_demo.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/imgui_impl_opengl3.cpp)
 
 # Located Header Files
-target_include_directories(gpu_ray_tracer PRIVATE dependencies)
+target_include_directories(gpu_ray_tracer PRIVATE dependencies
+                                                 ${IMGUI_DIR})
 # Link Libraries
 target_link_libraries(gpu_ray_tracer ${CMAKE_CURRENT_SOURCE_DIR}/glfw3.lib)
 
