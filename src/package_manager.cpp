@@ -7,20 +7,21 @@
 #include <fstream>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
+#include <string>
 
 using namespace Intersect;
 
 // ========================================
 // PACKAGER
 // ========================================
-Packager::Package Packager::packager()
+Packager::Package Packager::packager(std::string fileName)
 {
     // INSTANTIATE STRUCTS
     Package newPackage;
     Ray ray;
 
     // SCENE READER
-    loadScene("scene.txt", newPackage);
+    loadScene(fileName, newPackage);
 
     // CAMERA SETUP
     newPackage.camera.camViewUpdate();

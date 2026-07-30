@@ -36,6 +36,6 @@ public:
     };
 
     // FUNCTION SIGNATURES
-    Package packager();
+    Package packager(std::string fileName);
     void loadScene(const std::string &filename, Package &newPackage);
 };
