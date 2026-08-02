@@ -26,6 +26,7 @@ public:
         Camera camera;
 
         // SCENE OBJECTS
+        std::vector<glm::vec3> verticeBuffer; // storage point for triangle point
         std::vector<Intersect::Sphere> spheres;
         std::vector<Intersect::Plane> planes;
         std::vector<Intersect::Triangle> triangles;

@@ -80,6 +80,8 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
         else if (type == "Triangle")
         {
             Intersect::Triangle newTriangle;
+            newTriangle.faces = glm::vec3(-1.0); // ignore the faces
+
             // SHAPE STATS
             file >> newTriangle.p0.x >> newTriangle.p0.y >> newTriangle.p0.z;
             file >> newTriangle.p1.x >> newTriangle.p1.y >> newTriangle.p1.z;
@@ -92,6 +94,35 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
             newTriangle.objID = objID;
             newPackage.triangles.push_back(newTriangle);
         }
+
+        else if (type == "f")
+        {
+            Intersect::Triangle newTriangle;
+            file >> newTriangle.faces.x >> newTriangle.faces.y >> newTriangle.faces.z;
+
+            objID += 1;
+            newTriangle.objID = objID;
+            newPackage.triangles.push_back(newTriangle);
+        }
+
+        // ========================================
+        // OBJ FILE INFO
+        // ========================================
+
+        // VERTEX POSITIONS
+        else if (type == "v")
+        {
+            glm::vec3 newVertex;
+
+            // VERTEX STATS (X,Y,Z)
+            file >> newVertex.x >> newVertex.y >> newVertex.z;
+
+            newPackage.verticeBuffer.push_back(newVertex);
+        }
+
+        // VERTEX NORMALS
+
+        // VERTEX TEXTURE MAPPING
 
         // ========================================
         // PLANE INFO

@@ -205,6 +205,7 @@ int main()
     GLuint cameraID;
     GLuint sphereID;
     GLuint triangleID;
+    GLuint vertexID;
     glCreateBuffers(1, &triangleID);
     GLuint planeID;
     GLuint xFormID;
@@ -240,6 +241,8 @@ int main()
         {
             sampleCount = 0.0f;
 
+            sampleCountLoc = glGetUniformLocation(compProg, "sampleCount");
+
             // ========================================
             // INFO SHIPPER
             // ========================================
@@ -248,7 +251,6 @@ int main()
             // ----------------------------------------
             // CAMERA / VIEWPORT PACKAGER
             // ----------------------------------------
-            cameraID;
             glCreateBuffers(1, &cameraID);                                                                      // Create unique memory ID and initiliaze
             glNamedBufferData(cameraID, sizeof(Camera::CompCam), &packageInfo.camera.compCam, GL_DYNAMIC_DRAW); // allocate memory & send to GPU
             glBindBufferBase(GL_UNIFORM_BUFFER, 0, cameraID);                                                   // link memory location to port for GPU access
@@ -258,25 +260,26 @@ int main()
             // ----------------------------------------
 
             // SPHERE PACKAGER
-            sphereID;
             glCreateBuffers(1, &sphereID);
             glNamedBufferData(sphereID, packageInfo.spheres.size() * sizeof(Intersect::Sphere), packageInfo.spheres.data(), GL_STATIC_DRAW);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, sphereID);
 
             // TRIANGLE
-            triangleID;
             glCreateBuffers(1, &triangleID);
             glNamedBufferData(triangleID, packageInfo.triangles.size() * sizeof(Intersect::Triangle), packageInfo.triangles.data(), GL_STATIC_DRAW);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, triangleID);
 
+            // VERTICES
+            glCreateBuffers(1, &vertexID);
+            glNamedBufferData(vertexID, packageInfo.verticeBuffer.size() * sizeof(glm::vec3), packageInfo.verticeBuffer.data(), GL_STATIC_DRAW);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, vertexID);
+
             // PLANE
-            planeID;
             glCreateBuffers(1, &planeID);
             glNamedBufferData(planeID, packageInfo.planes.size() * sizeof(Intersect::Plane), packageInfo.planes.data(), GL_STATIC_DRAW);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, planeID);
 
             // TRANSFORMS
-            xFormID;
             glCreateBuffers(1, &xFormID);
             glNamedBufferData(xFormID, packageInfo.xForms.size() * sizeof(Intersect::xForm), packageInfo.xForms.data(), GL_STATIC_DRAW);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, xFormID);
@@ -285,24 +288,19 @@ int main()
             // LIGHT PACKAGER
             // ----------------------------------------
             // POINT
-            pLightID;
             glCreateBuffers(1, &pLightID);
             glNamedBufferData(pLightID, packageInfo.pointLights.size() * sizeof(Light::pLight), packageInfo.pointLights.data(), GL_DYNAMIC_DRAW);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, pLightID);
 
             // DIRECTIONAL
-            dLightID;
             glCreateBuffers(1, &dLightID);
             glNamedBufferData(dLightID, packageInfo.directionalLights.size() * sizeof(Light::dLight), packageInfo.directionalLights.data(), GL_DYNAMIC_DRAW);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, dLightID);
 
             // AREA
-            aLightID;
             glCreateBuffers(1, &aLightID);
             glNamedBufferData(aLightID, packageInfo.areaLights.size() * sizeof(Light::aLight), packageInfo.areaLights.data(), GL_DYNAMIC_DRAW);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, aLightID);
-
-            sampleCountLoc = glGetUniformLocation(compProg, "sampleCount");
 
             // SWITCH STATE TO RENDERING
             currentState = renderState::rendering;
@@ -345,8 +343,8 @@ int main()
         }
 
         // DISPLAY
-        glClearColor(.75f, .5f, .75f, 1.0f); // set color that will be used to clear the screen
-        glClear(GL_COLOR_BUFFER_BIT);        // clears screen with constant to tell which buffer to clear (color buffer)
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // set color that will be used to clear the screen
+        glClear(GL_COLOR_BUFFER_BIT);         // clears screen with constant to tell which buffer to clear (color buffer)
 
         // GUI NEW FRAME
         ImGui_ImplOpenGL3_NewFrame();
@@ -518,10 +516,19 @@ static void configMenuWindow(string &fileName)
     static float planeAnim = 0.0;
 
     // POINT LIGHT VARIABLES
+    static float pLightPos[3] = {0.0, 0.0, 0.0};
+    static float pLightColor[3] = {0.5, 0.5, 0.5};
 
     // AREA LIGHT VARIABLES
+    static float aLightPos[3] = {0.0, 0.0, 0.0};
+    static float aLightColor[3] = {0.5, 0.5, 0.5};
+    static float aLightNorm[3] = {0.0, 0.0, 1.0};
+    static float aLightU[3] = {0.0, 0.0, 1.0};
+    static float aLightV[3] = {0.0, 0.0, 1.0};
 
     // DIRECTIONAL LIGHT VARIABLES
+    static float dLightDir[3] = {0.0, 0.0, 0.0};
+    static float dLightColor[3] = {0.5, 0.5, 0.5};
 
     if (ImGui::TreeNode("Scene Settings"))
     {
@@ -640,8 +647,56 @@ static void configMenuWindow(string &fileName)
     if (ImGui::TreeNode("Lighting"))
     {
         ImGui::SeparatorText("Point Lights");
+
+        ImGui::InputFloat3("Point Light Position (X,Y,Z)", pLightPos);
+        ImGui::InputFloat3("Point Light Color (R,G,B)", pLightColor);
+
+        if (ImGui::Button("Add Point Light"))
+        {
+            // WRITE TO STRING STREAM
+            sceneContent << "pLight\n";
+            sceneContent << pLightPos[0] << " " << pLightPos[1] << " " << pLightPos[2] << endl;
+            sceneContent << pLightColor[0] << " " << pLightColor[1] << " " << pLightColor[2] << endl;
+
+            cout << "Added point light to sstream.\n";
+        }
+
         ImGui::SeparatorText("Area Lights");
+
+        ImGui::InputFloat3("Area Light Position (X,Y,Z)", aLightPos);
+        ImGui::InputFloat3("Area Light Color (R,G,B)", aLightColor);
+        ImGui::InputFloat3("Area Light Normal (X,Y,Z)", aLightNorm);
+        ImGui::InputFloat3("Area Light Width & Rotation (X,Y,Z)", aLightU);
+        ImGui::InputFloat3("Area Light Height & Rotation (X,Y,Z)", aLightV);
+
+        if (ImGui::Button("Add Area Light"))
+        {
+            // WRITE TO STRING STREAM
+            sceneContent << "aLight\n";
+            sceneContent << aLightPos[0] << " " << aLightPos[1] << " " << aLightPos[2] << endl;
+            sceneContent << aLightColor[0] << " " << aLightColor[1] << " " << aLightColor[2] << endl;
+            sceneContent << aLightNorm[0] << " " << aLightNorm[1] << " " << aLightNorm[2] << endl;
+            sceneContent << aLightU[0] << " " << aLightU[1] << " " << aLightU[2] << endl;
+            sceneContent << aLightV[0] << " " << aLightV[1] << " " << aLightV[2] << endl;
+
+            cout << "Added area light to sstream.\n";
+        }
+
         ImGui::SeparatorText("Directional Lights");
+
+        ImGui::InputFloat3("Directional Light Direction (X,Y,Z)", dLightDir);
+        ImGui::InputFloat3("Directional Light Color (R,G,B)", dLightColor);
+
+        if (ImGui::Button("Add Directional Light"))
+        {
+            // WRITE TO STRING STREAM
+            sceneContent << "dLight\n";
+            sceneContent << dLightDir[0] << " " << dLightDir[1] << " " << dLightDir[2] << endl;
+            sceneContent << dLightColor[0] << " " << dLightColor[1] << " " << dLightColor[2] << endl;
+
+            cout << "Added directional light to sstream.\n";
+        }
+
         ImGui::TreePop();
     }
 

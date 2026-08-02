@@ -92,14 +92,14 @@ namespace Intersect
     // ========================================
     struct Triangle
     {
-        glm::vec3 albedo;
+        glm::vec3 albedo = glm::vec3(1.0f);
         unsigned int objID;
-        float roughness;
-        float metallic;
-        float ior;
-        int emissive;
-        float z;        // depth
-        float layerIOR; // ior for layered
+        float roughness = 0.0f;
+        float metallic = 0.0f;
+        float ior = 0.0f;
+        int emissive = 0;
+        float z = 0.0f;        // depth
+        float layerIOR = 0.0f; // ior for layered
         int animated = 0;
         float padding1 = 0.0f;
 
@@ -111,6 +111,9 @@ namespace Intersect
 
         glm::vec3 p2;
         float padding4 = 0.0f;
+
+        glm::vec3 faces;
+        float padding5 = 0.0f;
     };
 
     // ========================================

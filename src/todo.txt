@@ -1,12 +1,11 @@
 **Additional Features to Add In Order**
 Alter scene reader to handle obj files
-Create a gui
-tone mapping
+-Switch triangle normal calculations
+-Add texture mapping
 
 Add bound boxes or kd tree
-texture mapping
+tone mapping
 Bring spectral rendering back
-Alter scene reader to handle obj files and such
 Add a power stat to lights
 Add Volumetric
 Add animation capabilities
