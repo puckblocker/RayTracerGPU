@@ -1,6 +1,6 @@
 # RayTracerGPU
 
-![Example Render: Cornell Box](100kCornell.jpg)
+![Example Render: Cornell Box](100kCornell.png)
 
 This is a hardware-accelerated path tracer built with C++ and OpenGL 4.6 compute shaders. It provides a highly flexible rendering environment, allowing users to render custom scenes, import 3D geometry, and dial in physically based materials.
 
