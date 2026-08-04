@@ -81,8 +81,8 @@ int main()
     // DISPLAY SETUP CODE
     // ========================================
     // WINDOW STATS
-    window = glfwCreateWindow(640, 640, "Beef Wizard Path Tracer", NULL, NULL); // sets window stats like resolution and full screen, etc
-    glfwMakeContextCurrent(window);                                             // Sets window to the context we'll be rendering to
+    window = glfwCreateWindow(640, 640, "Beef Tracer", NULL, NULL); // sets window stats like resolution and full screen, etc
+    glfwMakeContextCurrent(window);                                 // Sets window to the context we'll be rendering to
 
     // GLAD ERROR CHECKER
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) // tells glad to run through system with the location of all function definitions
@@ -206,7 +206,8 @@ int main()
     GLuint sphereID;
     GLuint triangleID;
     GLuint vertexID;
-    glCreateBuffers(1, &triangleID);
+    GLuint normalID;
+    GLuint textureID;
     GLuint planeID;
     GLuint xFormID;
     GLuint pLightID;
@@ -273,6 +274,16 @@ int main()
             glCreateBuffers(1, &vertexID);
             glNamedBufferData(vertexID, packageInfo.verticeBuffer.size() * sizeof(glm::vec3), packageInfo.verticeBuffer.data(), GL_STATIC_DRAW);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, vertexID);
+
+            // NORMALS
+            glCreateBuffers(1, &normalID);
+            glNamedBufferData(normalID, packageInfo.normalBuffer.size() * sizeof(glm::vec3), packageInfo.normalBuffer.data(), GL_STATIC_DRAW);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 9, normalID);
+
+            // TEXTURE COORDS
+            glCreateBuffers(1, &textureID);
+            glNamedBufferData(textureID, packageInfo.textureBuffer.size() * sizeof(glm::vec3), packageInfo.textureBuffer.data(), GL_STATIC_DRAW);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 10, textureID);
 
             // PLANE
             glCreateBuffers(1, &planeID);
@@ -375,7 +386,9 @@ int main()
     return 0;        // terminate program
 }
 
-// Save Image
+// ========================================
+// IMAGE SAVER
+// ========================================
 void imageSaver(std::vector<float> &pixelBuffer, int width, int height, string pictureName)
 {
     cout << "\nSaving Image...\n";
@@ -413,9 +426,18 @@ void imageSaver(std::vector<float> &pixelBuffer, int width, int height, string p
     return;
 }
 
+// ========================================
+// MENU MANAGER
+// ========================================
 static void menuManagerWindow(renderState &currentState, string &fileName, string &pictureName)
 {
-    ImGui::Begin("Path Tracer Config Menu");
+    // GUI SETTINGS
+    ImGuiWindowFlags window_flags = 0;
+    window_flags |= ImGuiWindowFlags_NoMove;
+    window_flags |= ImGuiWindowFlags_NoCollapse;
+    window_flags |= ImGuiWindowFlags_NoResize;
+
+    ImGui::Begin("Path Tracer Config Menu", nullptr, window_flags);
 
     if (ImGui::CollapsingHeader("Help"))
     {
@@ -435,6 +457,9 @@ static void menuManagerWindow(renderState &currentState, string &fileName, strin
     ImGui::End();
 }
 
+// ========================================
+// MAIN MENU
+// ========================================
 static void startMenuWindow(renderState &currentState, string &pictureName, string &fileName)
 {
     ImGui::SeparatorText("Scene");
@@ -446,7 +471,6 @@ static void startMenuWindow(renderState &currentState, string &pictureName, stri
         ImGui::SameLine();
         ImGui::Text("Saved Selected File!");
         fileName = tempFile;
-        fileName += ".txt";
     }
 
     ImGui::SeparatorText("Controls");
@@ -478,6 +502,9 @@ static void startMenuWindow(renderState &currentState, string &pictureName, stri
     }
 }
 
+// ========================================
+// SCENE CREATION
+// ========================================
 static void configMenuWindow(string &fileName)
 {
     // SCENE SETTINGS VARIABLES
@@ -719,6 +746,9 @@ static void configMenuWindow(string &fileName)
     }
 }
 
+// ========================================
+// HELP UI
+// ========================================
 void help()
 {
     ImGui::SeparatorText("START INSTRUCTIONS");

@@ -94,7 +94,7 @@ namespace Intersect
     {
         glm::vec3 albedo = glm::vec3(1.0f);
         unsigned int objID;
-        float roughness = 0.0f;
+        float roughness = 0.2f;
         float metallic = 0.0f;
         float ior = 0.0f;
         int emissive = 0;
@@ -114,6 +114,12 @@ namespace Intersect
 
         glm::vec3 faces;
         float padding5 = 0.0f;
+
+        glm::vec3 vertNorms;
+        float padding6 = 0.0f;
+
+        glm::vec3 textPos;
+        float padding7 = 0.0f;
     };
 
     // ========================================

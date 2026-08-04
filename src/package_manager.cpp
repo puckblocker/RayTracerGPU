@@ -98,7 +98,30 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
         else if (type == "f")
         {
             Intersect::Triangle newTriangle;
-            file >> newTriangle.faces.x >> newTriangle.faces.y >> newTriangle.faces.z;
+
+            // BUFFER
+            std::string buf0, buf1, buf2; // buffer to hold unprocessed text
+            file >> buf0 >> buf1 >> buf2;
+
+            // PROCESS BUFFER
+            std::replace(buf0.begin(), buf0.end(), '/', ' ');
+            std::replace(buf1.begin(), buf1.end(), '/', ' ');
+            std::replace(buf2.begin(), buf2.end(), '/', ' ');
+
+            std::stringstream sBuf0(buf0), sBuf1(buf1), sBuf2(buf2);
+
+            // DATA EXTRACT
+            sBuf0 >> newTriangle.faces.x;
+            if (sBuf0 >> newTriangle.vertNorms.x)
+                ;
+
+            sBuf1 >> newTriangle.faces.y;
+            if (sBuf1 >> newTriangle.vertNorms.y)
+                ;
+
+            sBuf2 >> newTriangle.faces.z;
+            if (sBuf2 >> newTriangle.vertNorms.z)
+                ;
 
             objID += 1;
             newTriangle.objID = objID;
@@ -121,8 +144,24 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
         }
 
         // VERTEX NORMALS
+        else if (type == "vn")
+        {
+            glm::vec3 newNorm;
+
+            file >> newNorm.x >> newNorm.y >> newNorm.z;
+
+            newPackage.normalBuffer.push_back(newNorm);
+        }
 
         // VERTEX TEXTURE MAPPING
+        else if (type == "vt")
+        {
+            glm::vec2 newTexture;
+
+            file >> newTexture.x >> newTexture.y;
+
+            newPackage.textureBuffer.push_back(newTexture);
+        }
 
         // ========================================
         // PLANE INFO
@@ -245,6 +284,15 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
 
             std::cout << "Transform for ID " << trnsfrm.crntID << ":\n";
             std::cout << glm::to_string(trnsfrm.transform) << "\n\n";
+        }
+
+        // ========================================
+        // JUNK DATA (Delete useless lines)
+        // ========================================
+        else
+        {
+            std::string trash;
+            std::getline(file, trash);
         }
     }
     file.close();

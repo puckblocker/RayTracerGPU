@@ -16,21 +16,21 @@ public:
     // ========================================
     // CAMERA BLUEPRINT
     // ========================================
-    glm::vec3 origin = glm::vec3(0.0f); // focal point, standard right hand coords
-    glm::vec3 up = glm::vec3(0.0f);     // vertical orientation
-    glm::vec3 gaze = glm::vec3(0.0f);   // direction camera is facing
-    float length;                       // distance from viewport center to camera
-    float lensDiameter;                 // size of camera lens (user provided)
-    float focusDist;                    // camera focus distance (user provided)
-    float focalDist;                    // camera focal distance
+    glm::vec3 origin = glm::vec3(0.0f, 0.0f, 2.0f); // focal point, standard right hand coords
+    glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);     // vertical orientation
+    glm::vec3 gaze = glm::vec3(0.0f, 0.0f, -1.0f);  // direction camera is facing
+    float length = 1.0f;                            // distance from viewport center to camera
+    float lensDiameter = 0.0f;                      // size of camera lens (user provided)
+    float focusDist = 1.0f;                         // camera focus distance (user provided)
+    float focalDist;                                // camera focal distance
 
     // ========================================
     // VIEWPORT BLUEPRINT
     // ========================================
     struct Viewport
     {
-        float height; // values so view is simplified to between -1 and +1
-        float width;
+        float height = 2.0f; // values so view is simplified to between -1 and +1
+        float width = 2.0f;
         glm::vec3 origin;
     };
 

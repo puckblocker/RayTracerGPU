@@ -6,6 +6,8 @@
 
 #include <vector>
 #include <string>
+#include <algorithm>
+#include <sstream>
 #include <glm/glm.hpp>
 
 #include "rayData.h"
@@ -27,6 +29,8 @@ public:
 
         // SCENE OBJECTS
         std::vector<glm::vec3> verticeBuffer; // storage point for triangle point
+        std::vector<glm::vec3> normalBuffer;  // storage point for individual point normals (triangles)
+        std::vector<glm::vec2> textureBuffer; // texture mapping
         std::vector<Intersect::Sphere> spheres;
         std::vector<Intersect::Plane> planes;
         std::vector<Intersect::Triangle> triangles;

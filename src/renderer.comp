@@ -160,6 +160,12 @@ struct Triangle
 
     vec3 faces;
     float padding6;
+
+    vec3 vertNorms;
+    float padding7;
+
+    vec3 texPos;
+    float padding8;
 };
 
 layout(std430, binding = 2) buffer TriangleBuffer
@@ -170,6 +176,16 @@ layout(std430, binding = 2) buffer TriangleBuffer
 layout(std430, binding = 8) buffer vertexBuffer
 {
     float vertBuffer[];
+};
+
+layout(std430, binding = 9) buffer normalBuffer
+{
+    float normBuffer[];
+};
+
+layout(std430, binding = 10) buffer textureBuffer
+{
+    float texBuffer[];
 };
 
 struct Plane
@@ -1470,9 +1486,9 @@ HitInfo intersectTriangle(Ray ray, Triangle triangle)
     // GRAB POINTS
     if(triangle.faces.x >= 0.0)
     {
-        int p0Index = int(triangle.faces.x) * 3;
-        int p1Index = int(triangle.faces.y) * 3;
-        int p2Index = int(triangle.faces.z) * 3;
+        int p0Index = int(triangle.faces.x - 1.0) * 3;
+        int p1Index = int(triangle.faces.y - 1.0) * 3;
+        int p2Index = int(triangle.faces.z - 1.0) * 3;
 
         triangle.p0 = vec3(vertBuffer[p0Index], vertBuffer[p0Index + 1], vertBuffer[p0Index + 2]);
         triangle.p1 = vec3(vertBuffer[p1Index], vertBuffer[p1Index + 1], vertBuffer[p1Index + 2]);
