@@ -98,6 +98,7 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
         else if (type == "f")
         {
             Intersect::Triangle newTriangle;
+            float vtIndex;
 
             // BUFFER
             std::string buf0, buf1, buf2; // buffer to hold unprocessed text
@@ -111,17 +112,17 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
             std::stringstream sBuf0(buf0), sBuf1(buf1), sBuf2(buf2);
 
             // DATA EXTRACT
-            sBuf0 >> newTriangle.faces.x;
-            if (sBuf0 >> newTriangle.vertNorms.x)
-                ;
+            sBuf0 >> newTriangle.faces.x >> vtIndex >> newTriangle.faceNorms.x;
+            // if (sBuf0 >> newTriangle.faceNorms.x)
+            //     ;
 
-            sBuf1 >> newTriangle.faces.y;
-            if (sBuf1 >> newTriangle.vertNorms.y)
-                ;
+            sBuf1 >> newTriangle.faces.y >> vtIndex >> newTriangle.faceNorms.y;
+            // if (sBuf1 >> newTriangle.faceNorms.y)
+            //     ;
 
-            sBuf2 >> newTriangle.faces.z;
-            if (sBuf2 >> newTriangle.vertNorms.z)
-                ;
+            sBuf2 >> newTriangle.faces.z >> vtIndex >> newTriangle.faceNorms.z;
+            // if (sBuf2 >> newTriangle.faceNorms.z)
+            //     ;
 
             objID += 1;
             newTriangle.objID = objID;

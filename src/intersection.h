@@ -115,11 +115,20 @@ namespace Intersect
         glm::vec3 faces;
         float padding5 = 0.0f;
 
-        glm::vec3 vertNorms;
+        glm::vec3 faceNorms;
         float padding6 = 0.0f;
 
-        glm::vec3 textPos;
+        glm::vec3 n0;
         float padding7 = 0.0f;
+
+        glm::vec3 n1;
+        float padding8 = 0.0f;
+
+        glm::vec3 n2;
+        float padding9 = 0.0f;
+
+        glm::vec3 textPos;
+        float padding10 = 0.0f;
     };
 
     // ========================================

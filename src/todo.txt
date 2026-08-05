@@ -1,6 +1,5 @@
 **Additional Features to Add In Order**
 Alter scene reader to handle obj files
--Switch triangle normal calculations
 -Add texture mapping
 
 Add bound boxes or kd tree
