@@ -2,20 +2,26 @@
 // Purpose: BOUNDING VOLUME SETUP BLUEPRINT
 // ========================================
 #pragma once
-#include "package_manager.h"
+
 #include "intersection.h"
+
+#include <vector>
+#include <glm/glm.hpp>
+#include <glm/gtx/norm.hpp>
 
 class BVH
 {
 public:
-    int n; // number of nodes
+    int n; // number of primtives
+    int nodeTotal;
 
     // ----------------------------------------
     // BOUNDING BOXES SETUP
     // ----------------------------------------
     struct BoundBox
     {
-        std::vector<Intersect::Triangle> trianglePrim; // all triangle primitives held within a bounding box
+        int startIndex; // starting point for primtive array
+        int endIndex;   // ending point for primitive array
     };
 
     // ----------------------------------------
@@ -27,9 +33,9 @@ public:
         Node *left;
         Node *right;
     };
-    Node *newNode();
-    Node *insertNode();
+    Node *createNode(Intersect::Triangle triangle);
+    Node *insertNode(Intersect::Triangle triangle);
     Node *removeNode();
 
-    void boundHierarchy();
+    void boundHierarchy(std::vector<Intersect::Triangle>);
 };
