@@ -113,16 +113,8 @@ void Packager::loadScene(const std::string &filename, Package &newPackage)
 
             // DATA EXTRACT
             sBuf0 >> newTriangle.faces.x >> vtIndex >> newTriangle.faceNorms.x;
-            // if (sBuf0 >> newTriangle.faceNorms.x)
-            //     ;
-
             sBuf1 >> newTriangle.faces.y >> vtIndex >> newTriangle.faceNorms.y;
-            // if (sBuf1 >> newTriangle.faceNorms.y)
-            //     ;
-
             sBuf2 >> newTriangle.faces.z >> vtIndex >> newTriangle.faceNorms.z;
-            // if (sBuf2 >> newTriangle.faceNorms.z)
-            //     ;
 
             objID += 1;
             newTriangle.objID = objID;

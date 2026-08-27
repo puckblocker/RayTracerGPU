@@ -1,7 +1,6 @@
 **Additional Features to Add In Order**
 Alter scene reader to handle obj files
 -Add texture mapping
-
 Add bound boxes or kd tree
 tone mapping
 Bring spectral rendering back
