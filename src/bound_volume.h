@@ -33,9 +33,14 @@ public:
         Node *left;
         Node *right;
     };
-    Node *createNode(Intersect::Triangle triangle);
-    Node *insertNode(Intersect::Triangle triangle);
-    Node *removeNode();
 
-    void boundHierarchy(std::vector<Intersect::Triangle>);
+    Node *root = nullptr;
+
+    // NODE FUNCTIONS
+    void deleteNode();
+    void deleteTree(Node*);
+
+    // BVH FUNCTIONS
+    void buildBVH(std::vector<Intersect::Triangle> &);
+    Node *workerBVH(std::vector<Intersect::Triangle> &, int, int);
 };

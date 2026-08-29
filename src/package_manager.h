@@ -14,6 +14,7 @@
 #include "intersection.h"
 #include "lighting.h"
 #include "viewport.h"
+#include "bound_volume.h"
 
 class Packager
 {
