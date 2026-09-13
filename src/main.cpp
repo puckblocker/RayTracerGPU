@@ -213,6 +213,7 @@ int main()
     GLuint pLightID;
     GLuint dLightID;
     GLuint aLightID;
+    GLuint boxArrayID;
 
     // ========================================
     // GUI SETUP
@@ -255,6 +256,13 @@ int main()
             glCreateBuffers(1, &cameraID);                                                                      // Create unique memory ID and initiliaze
             glNamedBufferData(cameraID, sizeof(Camera::CompCam), &packageInfo.camera.compCam, GL_DYNAMIC_DRAW); // allocate memory & send to GPU
             glBindBufferBase(GL_UNIFORM_BUFFER, 0, cameraID);                                                   // link memory location to port for GPU access
+
+            // ----------------------------------------
+            // BVH PACKAGER
+            // ----------------------------------------
+            glCreateBuffers(1, &boxArrayID);
+            glNamedBufferData(boxArrayID, packageInfo.boxArray.size() * sizeof(BVH::BoundBox), packageInfo.boxArray.data(), GL_STATIC_DRAW);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, boxArrayID);
 
             // ----------------------------------------
             // SHAPE PACKAGER

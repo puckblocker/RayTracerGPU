@@ -83,6 +83,27 @@ layout(std140, binding = 0) uniform CameraBuffer    // bind to port and grab the
 } CameraData;   // essentially a new struct
 
 // ----------------------------------------
+// BVH BLUEPRINTS
+// ----------------------------------------
+struct BoundBox
+{
+    int startIndex;
+    int endIndex;
+    int rightIndex;
+
+    vec3 boxMin;
+    float padding1 = 0.0;
+
+    vec3 boxMax;
+    float padding2 = 0.0;
+}
+
+layout(std430, binding = 11) bvhBuffer
+{
+    BoundBox boundBoxes[];
+}
+
+// ----------------------------------------
 // INTERSECTION BLUEPRINTS
 // ----------------------------------------
 

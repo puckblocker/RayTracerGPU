@@ -19,12 +19,16 @@ Packager::Package Packager::packager(std::string fileName)
     // INSTANTIATE STRUCTS
     Package newPackage;
     Ray ray;
+    BVH bvh;
 
     // SCENE READER
     loadScene(fileName, newPackage);
 
     // CAMERA SETUP
     newPackage.camera.camViewUpdate();
+
+    // BVH SETUP
+    newPackage.boxArray = bvh.buildBVH(newPackage.triangles, newPackage.verticeBuffer);
 
     // PACKAGE & SEND DATA
     return newPackage;

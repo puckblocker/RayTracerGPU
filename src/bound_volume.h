@@ -22,6 +22,13 @@ public:
     {
         int startIndex; // starting point for primtive array
         int endIndex;   // ending point for primitive array
+        int rightIndex; // right child index (for GPU traversal)
+
+        glm::vec3 boxMin;
+        float padding1 = 0.0;
+
+        glm::vec3 boxMax;
+        float padding2 = 0.0;
     };
 
     // ----------------------------------------
@@ -34,13 +41,11 @@ public:
         Node *right;
     };
 
-    Node *root = nullptr;
-
     // NODE FUNCTIONS
-    void deleteNode();
-    void deleteTree(Node*);
+    void deleteTree(Node *);
 
     // BVH FUNCTIONS
-    void buildBVH(std::vector<Intersect::Triangle> &);
-    Node *workerBVH(std::vector<Intersect::Triangle> &, int, int);
+    std::vector<BoundBox> buildBVH(std::vector<Intersect::Triangle> &, std::vector<glm::vec3> &);
+    Node *workerBVH(std::vector<Intersect::Triangle> &, std::vector<glm::vec3> &, int, int, glm::vec3, glm::vec3);
+    void traverseBVH(Node *, std::vector<BoundBox> &);
 };

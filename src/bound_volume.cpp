@@ -6,27 +6,40 @@
 // ========================================
 // BVH MANAGER
 // ========================================
-void BVH::buildBVH(std::vector<Intersect::Triangle> &masterArray)
+std::vector<BVH::BoundBox> BVH::buildBVH(std::vector<Intersect::Triangle> &masterArray, std::vector<glm::vec3> &vertBuffer)
 {
+    std::vector<BoundBox> boxArray; // compressed BVH
+    Node *root = nullptr;
+
     // BUILD BVH TREE
-    root = workerBVH(masterArray, 0, masterArray.size());
+    root = workerBVH(masterArray, vertBuffer, 0, masterArray.size(), glm::vec3(0.0), glm::vec3(0.0));
+
+    // COMPRESS INTO LINEAR ARRAY
+    traverseBVH(root, boxArray);
+
+    // DELETE TREE TO CLEAR MEMORY
+    deleteTree(root);
+
+    // RETURN COMPRESSED BVH
+    return boxArray;
 }
 
 // ========================================
 // BVH RECURSIVE WORKER
 // ========================================
-BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, int startIndex, int endIndex) // pass in vector of all primitives
+BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, std::vector<glm::vec3> &vertBuffer, int startIndex, int endIndex, glm::vec3 boxMin, glm::vec3 boxMax) // pass in vector of all primitives
 {
     // SETUP
     Node *newNode = new Node(); // allocate memory for new node
     n = primArray.size();
-    nodeTotal = 2 * n - 1;
 
     // CREATE BASE NODE
     if (endIndex - startIndex == n)
     {
         newNode->boundBox.startIndex = 0;
         newNode->boundBox.endIndex = n;
+        newNode->boundBox.boxMin = glm::vec3(0.0);
+        newNode->boundBox.boxMax = glm::vec3(0.0);
     }
 
     // CHECK FOR LEAF NODE
@@ -36,7 +49,10 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, int start
         newNode->right = nullptr;
         newNode->boundBox.startIndex = startIndex;
         newNode->boundBox.endIndex = endIndex;
+        newNode->boundBox.boxMin = boxMin;
+        newNode->boundBox.boxMax = boxMax;
 
+        nodeTotal++;
         return newNode;
     }
 
@@ -52,10 +68,25 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, int start
     for (int i = startIndex; i < endIndex; i++)
     {
         Intersect::Triangle &prim = primArray[i];
+        glm::vec3 p0, p1, p2;
+
+        // TRIANGLE CONSTRUCTION
+        if (prim.faces.x >= 0.0) // check for faces
+        {
+            p0 = vertBuffer[int(prim.faces.x) - 1];
+            p1 = vertBuffer[int(prim.faces.y) - 1];
+            p2 = vertBuffer[int(prim.faces.z) - 1];
+        }
+        else
+        {
+            p0 = prim.p0;
+            p1 = prim.p1;
+            p2 = prim.p2;
+        }
 
         // GRAB PRIMITVE MIN AND MAX SIZE
-        glm::vec3 primMin = glm::min(prim.p0, glm::min(prim.p1, prim.p2));
-        glm::vec3 primMax = glm::max(prim.p0, glm::max(prim.p1, prim.p2));
+        glm::vec3 primMin = glm::min(p0, glm::min(p1, p2));
+        glm::vec3 primMax = glm::max(p0, glm::max(p1, p2));
 
         // COMPARE AXISES
         boxMin = glm::min(boxMin, primMin);
@@ -80,11 +111,27 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, int start
     for (int i = startIndex; i < endIndex; i++)
     {
         Intersect::Triangle &prim = primArray[i];
+        glm::vec3 p0, p1, p2;
+
+        // TRIANGLE CONSTRUCTION
+        if (prim.faces.x >= 0.0) // check for faces
+        {
+            p0 = vertBuffer[int(prim.faces.x) - 1];
+            p1 = vertBuffer[int(prim.faces.y) - 1];
+            p2 = vertBuffer[int(prim.faces.z) - 1];
+        }
+        else
+        {
+            p0 = prim.p0;
+            p1 = prim.p1;
+            p2 = prim.p2;
+        }
+
         switch (longAxis)
         {
         // X AXIS
         case (0):
-            center = (prim.p0.x + prim.p1.x + prim.p2.x) / 3;
+            center = (p0.x + p1.x + p2.x) / 3;
             if (center <= boxMin.x + (boxSize.x / 2.0f))
             {
                 // SWAP VECTORS
@@ -93,7 +140,7 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, int start
             }
         // Y AXIS
         case (1):
-            center = (prim.p0.y + prim.p1.y + prim.p2.y) / 3;
+            center = (p0.y + p1.y + p2.y) / 3;
             if (center <= boxMin.y + (boxSize.y / 2.0f))
             {
                 // SWAP VECTORS
@@ -102,7 +149,7 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, int start
             }
         // Z AXIS
         case (2):
-            center = (prim.p0.z + prim.p1.z + prim.p2.z) / 3;
+            center = (p0.z + p1.z + p2.z) / 3;
             if (center <= boxMin.z + (boxSize.z / 2.0f))
             {
                 // SWAP VECTORS
@@ -121,10 +168,38 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, int start
     // ----------------------------------------
 
     // node->left = createNode(primArray, node, leftIndxStart, leftIndxEnd, true);
-    newNode->left = workerBVH(primArray, leftIndxStart, leftIndxEnd);
-    newNode->right = workerBVH(primArray, rightIndxStart, rightIndxEnd);
+    newNode->left = workerBVH(primArray, vertBuffer, leftIndxStart, leftIndxEnd, boxMin, boxMax);
+    newNode->right = workerBVH(primArray, vertBuffer, rightIndxStart, rightIndxEnd, boxMin, boxMax);
 
     return newNode;
+}
+
+// ========================================
+// COMPRESS DFS TRAVERSAL BVH
+// ========================================
+void BVH::traverseBVH(Node *node, std::vector<BoundBox> &boxArray)
+{
+    // CHECK FOR END OF TREE
+    if (node == nullptr)
+    {
+        return;
+    }
+
+    // ----------------------------------------
+    // COMPRESS DFS TRAVERSAL BVH
+    // ----------------------------------------
+    int crntIndx = boxArray.size();
+
+    boxArray.push_back(node->boundBox); // store parent node
+    traverseBVH(node->left, boxArray);  // step to left child
+
+    if (node->right != nullptr)
+    {
+        boxArray[crntIndx].rightIndex = boxArray.size();
+        traverseBVH(node->right, boxArray); // step to right child
+    }
+
+    return;
 }
 
 // ========================================
@@ -144,11 +219,4 @@ void BVH::deleteTree(Node *node)
 
     // DELETE NODE
     delete node;
-}
-
-// ========================================
-// DELETE NODE
-// ========================================
-void BVH::deleteNode()
-{
 }

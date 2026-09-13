@@ -39,6 +39,9 @@ public:
         std::vector<Light::pLight> pointLights;
         std::vector<Light::dLight> directionalLights;
         std::vector<Light::aLight> areaLights;
+
+        // BVH ARRAY
+        std::vector<BVH::BoundBox> boxArray;
     };
 
     // FUNCTION SIGNATURES
