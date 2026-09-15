@@ -7,7 +7,6 @@
 
 #include <vector>
 #include <glm/glm.hpp>
-#include <glm/gtx/norm.hpp>
 
 class BVH
 {

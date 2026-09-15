@@ -92,16 +92,16 @@ struct BoundBox
     int rightIndex;
 
     vec3 boxMin;
-    float padding1 = 0.0;
+    float padding1;
 
     vec3 boxMax;
-    float padding2 = 0.0;
-}
+    float padding2;
+};
 
-layout(std430, binding = 11) bvhBuffer
+layout(std430, binding = 11) buffer bvhBuffer
 {
     BoundBox boundBoxes[];
-}
+};
 
 // ----------------------------------------
 // INTERSECTION BLUEPRINTS

@@ -57,8 +57,8 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, std::vect
     }
 
     // BOX MIN AND MAX
-    glm::vec3 boxMin = glm::vec3(std::numeric_limits<float>::infinity()); // close to infinity
-    glm::vec3 boxMax = glm::vec3(-std::numeric_limits<float>::infinity());
+    boxMin = glm::vec3(std::numeric_limits<float>::infinity()); // close to infinity
+    boxMax = glm::vec3(-std::numeric_limits<float>::infinity());
 
     // ----------------------------------------
     // MIDPOINT SPLIT BVH CREATION
@@ -138,6 +138,7 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, std::vect
                 std::swap(primArray[i], primArray[leftIndxEnd]); // sort array via mid point
                 leftIndxEnd++;                                   // increment for the swap
             }
+            break;
         // Y AXIS
         case (1):
             center = (p0.y + p1.y + p2.y) / 3;
@@ -147,6 +148,7 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, std::vect
                 std::swap(primArray[i], primArray[leftIndxEnd]);
                 leftIndxEnd++;
             }
+            break;
         // Z AXIS
         case (2):
             center = (p0.z + p1.z + p2.z) / 3;
@@ -156,6 +158,7 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, std::vect
                 std::swap(primArray[i], primArray[leftIndxEnd]);
                 leftIndxEnd++;
             }
+            break;
         }
     }
 

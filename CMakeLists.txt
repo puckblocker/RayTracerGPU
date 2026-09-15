@@ -14,6 +14,7 @@ add_executable(gpu_ray_tracer
     src/package_manager.cpp
     src/viewport.cpp 
     src/glad.c
+    src/bound_volume.cpp
     ${IMGUI_DIR}/imgui.cpp
     ${IMGUI_DIR}/imgui_demo.cpp
     ${IMGUI_DIR}/imgui_draw.cpp
