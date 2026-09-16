@@ -63,7 +63,6 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, std::vect
     // ----------------------------------------
     // MIDPOINT SPLIT BVH CREATION
     // ----------------------------------------
-
     // FIND LONGEST BOX SIZE
     for (int i = startIndex; i < endIndex; i++)
     {
@@ -71,7 +70,7 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, std::vect
         glm::vec3 p0, p1, p2;
 
         // TRIANGLE CONSTRUCTION
-        if (prim.faces.x >= 0.0) // check for faces
+        if (prim.faces.x >= 0) // check for faces
         {
             p0 = vertBuffer[int(prim.faces.x) - 1];
             p1 = vertBuffer[int(prim.faces.y) - 1];
@@ -166,11 +165,16 @@ BVH::Node *BVH::workerBVH(std::vector<Intersect::Triangle> &primArray, std::vect
     rightIndxStart = leftIndxEnd;
     rightIndxEnd = endIndex;
 
+    // MANUALLY SPLIT ARRAY (When triangles share vertices and refuse to separate)
+    if (leftIndxEnd == startIndex || leftIndxEnd == endIndex) // if end of left index = start or end, primitives are stuck
+    {
+        leftIndxEnd = startIndex + (endIndex - startIndex) / 2;
+        rightIndxStart = leftIndxEnd;
+    }
+
     // ----------------------------------------
     // CREATE BOUNDING BOXES
     // ----------------------------------------
-
-    // node->left = createNode(primArray, node, leftIndxStart, leftIndxEnd, true);
     newNode->left = workerBVH(primArray, vertBuffer, leftIndxStart, leftIndxEnd, boxMin, boxMax);
     newNode->right = workerBVH(primArray, vertBuffer, rightIndxStart, rightIndxEnd, boxMin, boxMax);
 
